@@ -1,3 +1,4 @@
+from modules.ui_theme import PALETTE as UI_COLORS
 import ipaddress
 import threading
 import tkinter as tk
@@ -52,19 +53,19 @@ class IPMacManagerPage:
             conn.close()
 
     def _build_ui(self):
-        controls = tk.Frame(self.parent, bg="white", bd=1, relief="solid")
+        controls = tk.Frame(self.parent, bg=UI_COLORS['surface'], bd=1, relief="solid")
         controls.pack(fill="x", padx=25, pady=(0, 10))
-        tk.Label(controls, text="Mạng:", bg="white", fg="#374151", font=("Segoe UI", 10, "bold")).pack(side="left", padx=(15, 6), pady=14)
+        tk.Label(controls, text="Mạng:", bg=UI_COLORS['surface'], fg=UI_COLORS['text'], font=("Segoe UI", 10, "bold")).pack(side="left", padx=(15, 6), pady=14)
         tk.Entry(controls, textvariable=self.network_var, width=20, font=("Segoe UI", 10)).pack(side="left", pady=14)
-        self.scan_btn = tk.Button(controls, text="Quét mạng", command=self.start_scan, bg="#2563EB", fg="white", relief="flat", padx=14, pady=7, cursor="hand2")
+        self.scan_btn = tk.Button(controls, text="Quét mạng", command=self.start_scan, bg=UI_COLORS['primary'], fg=UI_COLORS['text'], relief="flat", padx=14, pady=7, cursor="hand2")
         self.scan_btn.pack(side="left", padx=8)
-        self.stop_btn = tk.Button(controls, text="Stop", command=self.stop_scan, bg="#DC2626", fg="white", relief="flat", padx=12, pady=7, state="disabled", cursor="hand2")
+        self.stop_btn = tk.Button(controls, text="Stop", command=self.stop_scan, bg=UI_COLORS['danger_bg'], fg=UI_COLORS['text'], relief="flat", padx=12, pady=7, state="disabled", cursor="hand2")
         self.stop_btn.pack(side="left", padx=(0, 12))
-        tk.Label(controls, textvariable=self.status_text, bg="white", fg="#6B7280").pack(side="left")
+        tk.Label(controls, textvariable=self.status_text, bg=UI_COLORS['surface'], fg=UI_COLORS['muted']).pack(side="left")
 
-        filters = tk.Frame(self.parent, bg="#F3F4F6")
+        filters = tk.Frame(self.parent, bg=UI_COLORS['background'])
         filters.pack(fill="x", padx=25, pady=(0, 8))
-        tk.Label(filters, text="Tìm kiếm:", bg="#F3F4F6").pack(side="left")
+        tk.Label(filters, text="Tìm kiếm:", bg=UI_COLORS['background']).pack(side="left")
         ent = tk.Entry(filters, textvariable=self.search_var, width=30)
         ent.pack(side="left", padx=(6, 12))
         ent.bind("<KeyRelease>", lambda e: self.apply_filters())
@@ -75,7 +76,7 @@ class IPMacManagerPage:
         tk.Button(filters, text="Xuất Excel", command=self.export_excel).pack(side="right", padx=4)
         tk.Button(filters, text="Xuất CSV", command=self.export_csv).pack(side="right", padx=4)
 
-        box = tk.Frame(self.parent, bg="white", bd=1, relief="solid")
+        box = tk.Frame(self.parent, bg=UI_COLORS['surface'], bd=1, relief="solid")
         box.pack(fill="both", expand=True, padx=25, pady=(0, 15))
         columns = ("ip", "mac", "hostname", "status", "conflict", "note", "last_seen")
         self.table = ttk.Treeview(box, columns=columns, show="headings", selectmode="browse")

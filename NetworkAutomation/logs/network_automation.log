@@ -1,2 +1,21 @@
 2026-10-01 15:43:06,568 INFO app_runtime: Application start frozen=False data_dir=C:\Users\Admin\OneDrive\Documents\GitHub\mkdir-NetworkAutomation\NetworkAutomation
 2026-10-01 15:57:41,718 INFO app_runtime: Application start frozen=False data_dir=C:\Users\Admin\OneDrive\Documents\GitHub\mkdir-NetworkAutomation\NetworkAutomation
+2026-10-01 19:31:38,769 INFO app_runtime: Application start frozen=False data_dir=C:\Users\B-Tech Computer\Documents\GitHub\mkdir-NetworkAutomation\NetworkAutomation
+2026-10-01 22:32:20,948 INFO app_runtime: Application start frozen=False data_dir=C:\Users\B-Tech Computer\Documents\GitHub\mkdir-NetworkAutomation\NetworkAutomation
+2026-10-01 22:33:01,325 INFO app_runtime: Application start frozen=False data_dir=C:\Users\B-Tech Computer\Documents\GitHub\mkdir-NetworkAutomation\NetworkAutomation
+2026-10-01 22:33:53,607 INFO app_runtime: Application start frozen=False data_dir=C:\Users\B-Tech Computer\Documents\GitHub\mkdir-NetworkAutomation\NetworkAutomation
+2026-10-01 22:37:05,859 ERROR tkinter: Unhandled Tk callback exception
+Traceback (most recent call last):
+  File "C:\Users\B-Tech Computer\AppData\Local\Programs\Python\Python314\Lib\tkinter\__init__.py", line 2093, in __call__
+    return self.func(*args)
+           ~~~~~~~~~^^^^^^^
+  File "C:\Users\B-Tech Computer\Documents\GitHub\mkdir-NetworkAutomation\NetworkAutomation\modules\account_ui.py", line 204, in <lambda>
+    parent.bind('<Configure>', lambda e: hint.configure(wraplength=max(250, e.width-50)) if e.widget is parent else None, add='+')
+                                         ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\B-Tech Computer\AppData\Local\Programs\Python\Python314\Lib\tkinter\__init__.py", line 1842, in configure
+    return self._configure('configure', cnf, kw)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\B-Tech Computer\AppData\Local\Programs\Python\Python314\Lib\tkinter\__init__.py", line 1826, in _configure
+    self.tk.call(_flatten((self._w, cmd)) + self._options(cnf))
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_tkinter.TclError: invalid command name ".!frame3.!label2"

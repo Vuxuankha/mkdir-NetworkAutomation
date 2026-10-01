@@ -49,8 +49,13 @@ def run_all(activity=None):
 
 class AutoAuditSchedulerEngine:
     def __init__(self, root, activity=None):
-        self.root=root; self.activity=activity or (lambda x:None); self.running=True; self.busy=False; self._tick()
-    def stop(self): self.running=False
+        self.root=root; self.activity=activity or (lambda x:None); self.running=True; self.busy=False; self.thread=None; self.job=None; self._tick()
+    def stop(self):
+        self.running=False
+        if self.job:
+            try:self.root.after_cancel(self.job)
+            except Exception:pass
+            self.job=None
     def _tick(self):
         if not self.running:return
         try:
@@ -64,6 +69,6 @@ class AutoAuditSchedulerEngine:
                     def work():
                         try: run_all(self.activity)
                         finally: self.busy=False
-                    threading.Thread(target=work,daemon=True).start()
+                    self.thread=threading.Thread(target=work,daemon=True);self.thread.start()
         except Exception as e: self.activity('Auto Audit Scheduler lỗi: '+str(e))
-        self.root.after(60000,self._tick)
+        if self.running:self.job=self.root.after(60000,self._tick)

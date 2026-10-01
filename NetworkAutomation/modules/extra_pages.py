@@ -1,3 +1,4 @@
+from modules.ui_theme import PALETTE as UI_COLORS
 import csv
 import os
 import platform
@@ -156,7 +157,7 @@ class BasePage:
             pass
 
     def card(self):
-        f = tk.Frame(self.parent, bg="white", bd=1, relief="solid")
+        f = tk.Frame(self.parent, bg=UI_COLORS['surface'], bd=1, relief="solid")
         f.pack(fill="both", expand=True, padx=25, pady=(0, 15))
         return f
 
@@ -171,13 +172,13 @@ class NetworkDevicesPage(BasePage):
         self.refresh()
 
     def _build(self):
-        controls = tk.Frame(self.parent, bg="#F3F4F6")
+        controls = tk.Frame(self.parent, bg=UI_COLORS['background'])
         controls.pack(fill="x", padx=25, pady=(0, 8))
-        tk.Label(controls, text="Tìm kiếm:", bg="#F3F4F6").pack(side="left")
+        tk.Label(controls, text="Tìm kiếm:", bg=UI_COLORS['background']).pack(side="left")
         ent = tk.Entry(controls, textvariable=self.search_var, width=30)
         ent.pack(side="left", padx=6)
         ent.bind("<KeyRelease>", lambda e: self.refresh())
-        tk.Button(controls, text="Thêm thiết bị", command=self.add_device, bg="#2563EB", fg="white", relief="flat", padx=12).pack(side="left", padx=6)
+        tk.Button(controls, text="Thêm thiết bị", command=self.add_device, bg=UI_COLORS['primary'], fg=UI_COLORS['text'], relief="flat", padx=12).pack(side="left", padx=6)
         tk.Button(controls, text="Chi tiết", command=self.view_details).pack(side="left", padx=4)
         tk.Button(controls, text="Sửa", command=self.edit_device).pack(side="left", padx=4)
         tk.Button(controls, text="Xóa", command=self.delete_device).pack(side="left", padx=4)
@@ -230,7 +231,7 @@ class NetworkDevicesPage(BasePage):
             if not vars_[0].get().strip() or not vars_[1].get().strip():
                 messagebox.showwarning(title, "Name and IP Address are required.", parent=win); return
             result["values"] = [v.get().strip() for v in vars_]; result["ok"] = True; win.destroy()
-        tk.Button(win, text="Lưu", command=save, bg="#2563EB", fg="white", width=12).grid(row=len(labels), column=1, sticky="e", padx=10, pady=18)
+        tk.Button(win, text="Lưu", command=save, bg=UI_COLORS['primary'], fg=UI_COLORS['text'], width=12).grid(row=len(labels), column=1, sticky="e", padx=10, pady=18)
         win.wait_window(); return result.get("values") if result["ok"] else None
 
     def add_device(self):
@@ -310,18 +311,18 @@ class RemoteServicePage(BasePage):
         self._build(); self.refresh_history()
 
     def _build(self):
-        control = tk.Frame(self.parent, bg="white", bd=1, relief="solid"); control.pack(fill="x", padx=25, pady=(0,10))
+        control = tk.Frame(self.parent, bg=UI_COLORS['surface'], bd=1, relief="solid"); control.pack(fill="x", padx=25, pady=(0,10))
         items = [("Protocol", self.protocol), ("Host / IP", self.host), ("Port", self.port), ("Username", self.username)]
         for idx, (label, var) in enumerate(items):
-            tk.Label(control, text=label, bg="white").grid(row=0, column=idx*2, padx=(12,4), pady=15)
+            tk.Label(control, text=label, bg=UI_COLORS['surface']).grid(row=0, column=idx*2, padx=(12,4), pady=15)
             if label == "Protocol":
                 w = ttk.Combobox(control, textvariable=var, values=["SSH","Telnet","RDP","HTTP","HTTPS"], state="readonly", width=10)
                 w.bind("<<ComboboxSelected>>", lambda e: self._protocol_changed())
             else: w = tk.Entry(control, textvariable=var, width=16)
             w.grid(row=0, column=idx*2+1, pady=15)
-        tk.Button(control, text="Kiểm tra cổng", command=self.test_port, bg="#2563EB", fg="white", relief="flat", padx=12).grid(row=1, column=1, pady=(0,14))
+        tk.Button(control, text="Kiểm tra cổng", command=self.test_port, bg=UI_COLORS['primary'], fg=UI_COLORS['text'], relief="flat", padx=12).grid(row=1, column=1, pady=(0,14))
         tk.Button(control, text="Mở trình kết nối", command=self.open_client, padx=12).grid(row=1, column=3, pady=(0,14))
-        tk.Label(control, textvariable=self.status, bg="white", fg="#6B7280").grid(row=1, column=5, columnspan=3, sticky="w")
+        tk.Label(control, textvariable=self.status, bg=UI_COLORS['surface'], fg=UI_COLORS['muted']).grid(row=1, column=5, columnspan=3, sticky="w")
 
         box = self.card(); cols=("time","protocol","host","port","username","status","detail")
         self.table=ttk.Treeview(box, columns=cols, show="headings")
@@ -387,14 +388,14 @@ class BackupConfigPage(BasePage):
         super().__init__(parent,activity_callback); self.device=tk.StringVar(); self.note=tk.StringVar(); self.source_path=tk.StringVar(); self._build(); self.refresh()
 
     def _build(self):
-        ctl=tk.Frame(self.parent,bg="white",bd=1,relief="solid"); ctl.pack(fill="x",padx=25,pady=(0,10))
-        tk.Label(ctl,text="Thiết bị / Tên:",bg="white").grid(row=0,column=0,padx=(12,5),pady=12); tk.Entry(ctl,textvariable=self.device,width=24).grid(row=0,column=1)
-        tk.Label(ctl,text="Ghi chú:",bg="white").grid(row=0,column=2,padx=(12,5)); tk.Entry(ctl,textvariable=self.note,width=30).grid(row=0,column=3)
-        tk.Label(ctl,text="Tệp nguồn:",bg="white").grid(row=1,column=0,padx=(12,5),pady=(0,12)); tk.Entry(ctl,textvariable=self.source_path,width=45).grid(row=1,column=1,columnspan=2,sticky="we",pady=(0,12))
+        ctl=tk.Frame(self.parent,bg=UI_COLORS['surface'],bd=1,relief="solid"); ctl.pack(fill="x",padx=25,pady=(0,10))
+        tk.Label(ctl,text="Thiết bị / Tên:",bg=UI_COLORS['surface']).grid(row=0,column=0,padx=(12,5),pady=12); tk.Entry(ctl,textvariable=self.device,width=24).grid(row=0,column=1)
+        tk.Label(ctl,text="Ghi chú:",bg=UI_COLORS['surface']).grid(row=0,column=2,padx=(12,5)); tk.Entry(ctl,textvariable=self.note,width=30).grid(row=0,column=3)
+        tk.Label(ctl,text="Tệp nguồn:",bg=UI_COLORS['surface']).grid(row=1,column=0,padx=(12,5),pady=(0,12)); tk.Entry(ctl,textvariable=self.source_path,width=45).grid(row=1,column=1,columnspan=2,sticky="we",pady=(0,12))
         tk.Button(ctl,text="Chọn tệp",command=self.browse).grid(row=1,column=3,sticky="w",padx=5,pady=(0,12))
-        tk.Button(ctl,text="Tạo bản sao lưu",command=self.create_backup,bg="#2563EB",fg="white",relief="flat",padx=12).grid(row=0,column=4,padx=12)
+        tk.Button(ctl,text="Tạo bản sao lưu",command=self.create_backup,bg=UI_COLORS['primary'],fg=UI_COLORS['text'],relief="flat",padx=12).grid(row=0,column=4,padx=12)
         tk.Button(ctl,text="Sao lưu nội dung dán",command=self.backup_text).grid(row=1,column=4,padx=12,pady=(0,12))
-        box=self.card(); top=tk.Frame(box,bg="white"); top.pack(fill="x",padx=10,pady=8)
+        box=self.card(); top=tk.Frame(box,bg=UI_COLORS['surface']); top.pack(fill="x",padx=10,pady=8)
         tk.Button(top,text="Mở thư mục sao lưu",command=lambda: self._open_path(BACKUP_DIR)).pack(side="left")
         tk.Button(top,text="Xuất mục đã chọn",command=self.export_selected).pack(side="left",padx=5)
         tk.Button(top,text="Xóa",command=self.delete_selected).pack(side="left",padx=5)
@@ -424,7 +425,7 @@ class BackupConfigPage(BasePage):
             if not content.strip(): messagebox.showwarning("Sao lưu cấu hình","Paste configuration text first.",parent=win); return
             dst=BACKUP_DIR/f"{name.replace(' ','_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.cfg"; dst.write_text(content,encoding="utf-8")
             self._save_record(name,"Pasted text",dst); self.activity(f"Configuration text backup created: {dst.name}"); win.destroy(); self.refresh()
-        tk.Button(win,text="Save Backup",command=save,bg="#2563EB",fg="white").pack(pady=(0,10))
+        tk.Button(win,text="Save Backup",command=save,bg=UI_COLORS['primary'],fg=UI_COLORS['text']).pack(pady=(0,10))
 
     def _save_record(self,name,source,dst):
         conn=_connect()
@@ -477,10 +478,10 @@ class SchedulerPage(BasePage):
         super().__init__(parent,activity_callback); self.running=True; self.status=tk.StringVar(value="Scheduler active while this page is open"); self._build(); self.refresh(); self._tick()
 
     def _build(self):
-        ctl=tk.Frame(self.parent,bg="#F3F4F6");ctl.pack(fill="x",padx=25,pady=(0,8))
-        tk.Button(ctl,text="Thêm tác vụ",command=self.add_task,bg="#2563EB",fg="white",relief="flat").pack(side="left")
+        ctl=tk.Frame(self.parent,bg=UI_COLORS['background']);ctl.pack(fill="x",padx=25,pady=(0,8))
+        tk.Button(ctl,text="Thêm tác vụ",command=self.add_task,bg=UI_COLORS['primary'],fg=UI_COLORS['text'],relief="flat").pack(side="left")
         tk.Button(ctl,text="Sửa",command=self.edit_task).pack(side="left",padx=5);tk.Button(ctl,text="Chạy ngay",command=self.run_now).pack(side="left",padx=5);tk.Button(ctl,text="Bật / Tắt",command=self.toggle).pack(side="left",padx=5);tk.Button(ctl,text="Xóa",command=self.delete).pack(side="left",padx=5)
-        tk.Label(ctl,textvariable=self.status,bg="#F3F4F6",fg="#6B7280").pack(side="right")
+        tk.Label(ctl,textvariable=self.status,bg=UI_COLORS['background'],fg=UI_COLORS['muted']).pack(side="right")
         box=self.card();cols=("name","type","target","interval","enabled","last_run","next_run","last_status")
         self.table=ttk.Treeview(box,columns=cols,show="headings",selectmode="browse")
         widths=(150,120,220,100,80,150,150,130)
@@ -503,7 +504,7 @@ class SchedulerPage(BasePage):
             except:messagebox.showwarning(title,"Interval must be a whole number.",parent=win);return
             if not name.get().strip() or not target.get().strip():messagebox.showwarning(title,"Name and target are required.",parent=win);return
             res["v"]=(name.get().strip(),typ.get(),target.get().strip(),n);win.destroy()
-        tk.Button(win,text="Lưu",command=save,bg="#2563EB",fg="white").grid(row=5,column=1,sticky="e",padx=10,pady=15);win.wait_window();return res.get("v")
+        tk.Button(win,text="Lưu",command=save,bg=UI_COLORS['primary'],fg=UI_COLORS['text']).grid(row=5,column=1,sticky="e",padx=10,pady=15);win.wait_window();return res.get("v")
 
     def add_task(self):
         v=self._dialog("Add Scheduled Task");
@@ -600,8 +601,8 @@ class AlertsPage(BasePage):
         super().__init__(parent,activity_callback);self.filter=tk.StringVar(value="All");self._build();self.refresh()
 
     def _build(self):
-        ctl=tk.Frame(self.parent,bg="#F3F4F6");ctl.pack(fill="x",padx=25,pady=(0,8))
-        tk.Button(ctl,text="Kiểm tra thiết bị ngoại tuyến",command=self.check_devices,bg="#2563EB",fg="white",relief="flat").pack(side="left")
+        ctl=tk.Frame(self.parent,bg=UI_COLORS['background']);ctl.pack(fill="x",padx=25,pady=(0,8))
+        tk.Button(ctl,text="Kiểm tra thiết bị ngoại tuyến",command=self.check_devices,bg=UI_COLORS['primary'],fg=UI_COLORS['text'],relief="flat").pack(side="left")
         tk.Button(ctl,text="Thêm cảnh báo",command=self.add_alert).pack(side="left",padx=5);tk.Button(ctl,text="Xác nhận",command=self.ack).pack(side="left",padx=5);tk.Button(ctl,text="Đóng",command=self.close_alert).pack(side="left",padx=5);tk.Button(ctl,text="Xóa",command=self.delete).pack(side="left",padx=5)
         ttk.Combobox(ctl,textvariable=self.filter,values=["All","Open","Acknowledged","Closed"],state="readonly",width=14).pack(side="right");self.filter.trace_add("write",lambda *_:self.refresh())
         box=self.card();cols=("time","severity","ip","type","message","status")
@@ -670,11 +671,11 @@ class ReportsPage(BasePage):
     def __init__(self,parent,activity_callback=None):
         super().__init__(parent,activity_callback);self.summary=tk.StringVar();self._build();self.refresh_summary()
     def _build(self):
-        ctl=tk.Frame(self.parent,bg="white",bd=1,relief="solid");ctl.pack(fill="x",padx=25,pady=(0,10))
-        tk.Button(ctl,text="Làm mới tổng hợp",command=self.refresh_summary,bg="#2563EB",fg="white",relief="flat").pack(side="left",padx=12,pady=12)
+        ctl=tk.Frame(self.parent,bg=UI_COLORS['surface'],bd=1,relief="solid");ctl.pack(fill="x",padx=25,pady=(0,10))
+        tk.Button(ctl,text="Làm mới tổng hợp",command=self.refresh_summary,bg=UI_COLORS['primary'],fg=UI_COLORS['text'],relief="flat").pack(side="left",padx=12,pady=12)
         tk.Button(ctl,text="Xuất báo cáo Excel đầy đủ",command=self.export_excel).pack(side="left",padx=5)
         tk.Button(ctl,text="Xuất CSV thiết bị",command=self.export_csv).pack(side="left",padx=5)
-        box=self.card();tk.Label(box,textvariable=self.summary,bg="white",fg="#111827",font=("Segoe UI",12),justify="left",anchor="nw").pack(fill="both",expand=True,padx=25,pady=25,anchor="nw")
+        box=self.card();tk.Label(box,textvariable=self.summary,bg=UI_COLORS['surface'],fg=UI_COLORS['text'],font=("Segoe UI",12),justify="left",anchor="nw").pack(fill="both",expand=True,padx=25,pady=25,anchor="nw")
     def refresh_summary(self):
         conn=_connect()
         try:
@@ -708,7 +709,7 @@ class SystemLogsPage(BasePage):
     def __init__(self,parent,activity_callback=None):
         super().__init__(parent,activity_callback);self.search=tk.StringVar();self._build();self.refresh()
     def _build(self):
-        ctl=tk.Frame(self.parent,bg="#F3F4F6");ctl.pack(fill="x",padx=25,pady=(0,8));tk.Label(ctl,text="Tìm kiếm:",bg="#F3F4F6").pack(side="left");e=tk.Entry(ctl,textvariable=self.search,width=35);e.pack(side="left",padx=5);e.bind("<KeyRelease>",lambda ev:self.refresh())
+        ctl=tk.Frame(self.parent,bg=UI_COLORS['background']);ctl.pack(fill="x",padx=25,pady=(0,8));tk.Label(ctl,text="Tìm kiếm:",bg=UI_COLORS['background']).pack(side="left");e=tk.Entry(ctl,textvariable=self.search,width=35);e.pack(side="left",padx=5);e.bind("<KeyRelease>",lambda ev:self.refresh())
         tk.Button(ctl,text="Làm mới",command=self.refresh).pack(side="left",padx=5);tk.Button(ctl,text="Xuất CSV",command=self.export_csv).pack(side="left",padx=5);tk.Button(ctl,text="Xóa nhật ký",command=self.clear_logs).pack(side="right")
         box=self.card();cols=("time","action","description");self.table=ttk.Treeview(box,columns=cols,show="headings");
         for c,w in zip(cols,(160,180,700)):self.table.heading(c,text=c.title());self.table.column(c,width=w,anchor="w")
@@ -739,14 +740,18 @@ class SettingsPage(BasePage):
     def __init__(self,parent,activity_callback=None):
         super().__init__(parent,activity_callback);self.vars={k:tk.StringVar(value=get_setting(k,v)) for k,v in self.DEFAULTS.items()};self._build()
     def _build(self):
-        box=self.card();inner=tk.Frame(box,bg="white");inner.pack(anchor="nw",padx=30,pady=25)
-        labels=[("Default network", "default_network"),("Ping timeout (ms)","ping_timeout_ms"),("Auto ping interval (sec)","ping_interval_sec"),("Scan workers", "scan_workers"),("Default export directory", "export_directory")]
-        for i,(lab,key) in enumerate(labels):
-            tk.Label(inner,text=lab,bg="white",font=("Segoe UI",10,"bold")).grid(row=i,column=0,sticky="w",pady=10,padx=(0,15));tk.Entry(inner,textvariable=self.vars[key],width=42).grid(row=i,column=1,sticky="w",pady=10)
-            if key=="export_directory":tk.Button(inner,text="Chọn tệp",command=self.browse_export).grid(row=i,column=2,padx=5)
-        tk.Button(inner,text="Lưu cài đặt",command=self.save,bg="#2563EB",fg="white",relief="flat",padx=15,pady=6).grid(row=len(labels)+1,column=1,sticky="w",pady=20)
-        tk.Button(inner,text="Khôi phục mặc định",command=self.restore).grid(row=len(labels)+1,column=1,sticky="e",pady=20)
-        tk.Label(inner,text="Settings are stored in the local SQLite database. Some values apply the next time a module is opened.",bg="white",fg="#6B7280").grid(row=len(labels)+2,column=0,columnspan=3,sticky="w")
+        from modules.responsive_layout import FlowRow,AdaptiveForm,ScrollablePanel
+        self.panel=ScrollablePanel(self.parent);body=self.panel.body
+        form=ttk.Frame(body);form.pack(fill='x');fields=[]
+        labels=[('Mạng mặc định','default_network'),('Timeout ping (ms)','ping_timeout_ms'),('Chu kỳ ping (giây)','ping_interval_sec'),('Số luồng quét','scan_workers'),('Thư mục xuất mặc định','export_directory')]
+        for label,key in labels:
+            field=ttk.Frame(form);fields.append(field);ttk.Label(field,text=label).pack(anchor='w')
+            ttk.Entry(field,textvariable=self.vars[key],width=1).pack(fill='x',pady=4)
+        AdaptiveForm(form,fields)
+        bar=ttk.Frame(body);bar.pack(fill='x',pady=15)
+        FlowRow(bar,[ttk.Button(bar,text=text,command=command) for text,command in [('Chọn thư mục xuất',self.browse_export),('Lưu cài đặt',self.save),('Khôi phục mặc định',self.restore)]])
+        note=ttk.Label(body,text='Cài đặt lưu trong cơ sở dữ liệu cục bộ. Một số giá trị áp dụng khi mở lại chức năng.',wraplength=500);note.pack(fill='x')
+        body.bind('<Configure>',lambda event:note.configure(wraplength=max(200,event.width-24)),add='+')
     def browse_export(self):
         p=filedialog.askdirectory();
         if p:self.vars["export_directory"].set(p)

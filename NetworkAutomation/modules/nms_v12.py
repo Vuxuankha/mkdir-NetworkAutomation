@@ -1,3 +1,4 @@
+from modules.ui_theme import PALETTE as UI_COLORS
 import asyncio
 import re
 import sqlite3
@@ -309,15 +310,15 @@ class SNMPv3CredentialsPage:
     def __init__(self, parent, activity_callback=None):
         ensure_v12_tables(); self.parent=parent; self.activity=activity_callback or (lambda m:None); self._build(); self.refresh()
     def _build(self):
-        top=tk.Frame(self.parent,bg='#F3F4F6'); top.pack(fill='x',padx=25,pady=(0,8))
-        tk.Button(top,text='Thêm SNMPv3',command=self.add,bg='#2563EB',fg='white',relief='flat').pack(side='left')
+        top=tk.Frame(self.parent,bg=UI_COLORS['background']); top.pack(fill='x',padx=25,pady=(0,8))
+        tk.Button(top,text='Thêm SNMPv3',command=self.add,bg=UI_COLORS['primary'],fg=UI_COLORS['text'],relief='flat').pack(side='left')
         tk.Button(top,text='Sửa',command=self.edit).pack(side='left',padx=5); tk.Button(top,text='Gán cho thiết bị',command=self.assign).pack(side='left',padx=5)
         tk.Button(top,text='Xóa',command=self.delete).pack(side='left',padx=5); tk.Button(top,text='Làm mới',command=self.refresh).pack(side='left',padx=5)
-        box=tk.Frame(self.parent,bg='white');box.pack(fill='both',expand=True,padx=25,pady=(0,10)); cols=('name','user','level','auth','priv','port','assigned','note')
+        box=tk.Frame(self.parent,bg=UI_COLORS['surface']);box.pack(fill='both',expand=True,padx=25,pady=(0,10)); cols=('name','user','level','auth','priv','port','assigned','note')
         self.t=ttk.Treeview(box,columns=cols,show='headings')
         for c,h,w in [('name','Tên',160),('user','Username',130),('level','Security',100),('auth','Auth',80),('priv','Privacy',90),('port','Port',60),('assigned','Đã gán',70),('note','Ghi chú',260)]: self.t.heading(c,text=h);self.t.column(c,width=w,anchor='w')
         self.t.pack(fill='both',expand=True,padx=8,pady=8)
-        tk.Label(self.parent,text='Auth/Privacy password được mã hóa Fernet. Không hiển thị lại sau khi lưu.',bg='#F3F4F6',fg='#6B7280').pack(anchor='w',padx=25,pady=(0,8))
+        tk.Label(self.parent,text='Auth/Privacy password được mã hóa Fernet. Không hiển thị lại sau khi lưu.',bg=UI_COLORS['background'],fg=UI_COLORS['muted']).pack(anchor='w',padx=25,pady=(0,8))
     def refresh(self):
         for x in self.t.get_children():self.t.delete(x)
         c=_connect(); rows=c.execute('''SELECT s.*,COUNT(a.device_id) assigned FROM snmpv3_credentials s LEFT JOIN device_snmpv3_assignments a ON a.credential_id=s.id GROUP BY s.id ORDER BY s.name''').fetchall(); c.close()
@@ -346,7 +347,7 @@ class SNMPv3CredentialsPage:
             if not row and level in ('authNoPriv','authPriv') and not v['authpass'].get(): messagebox.showwarning(title,'Security level này cần Auth password.',parent=w);return
             if not row and level=='authPriv' and not v['privpass'].get(): messagebox.showwarning(title,'authPriv cần Privacy password.',parent=w);return
             result.update({k:x.get().strip() for k,x in v.items()});w.destroy()
-        tk.Button(w,text='Lưu',command=save,bg='#2563EB',fg='white',width=12).grid(row=11,column=1,sticky='e',padx=10,pady=15);w.wait_window();return result or None
+        tk.Button(w,text='Lưu',command=save,bg=UI_COLORS['primary'],fg=UI_COLORS['text'],width=12).grid(row=11,column=1,sticky='e',padx=10,pady=15);w.wait_window();return result or None
     def add(self):
         d=self._dialog('Thêm Credential SNMPv3');
         if not d:return
@@ -378,7 +379,7 @@ class SNMPv3CredentialsPage:
         labels=[f"{d['name']} ({d['ip']})" for d in dev];w=tk.Toplevel(self.parent);w.title('Gán SNMPv3');w.geometry('460x170');w.transient(self.parent.winfo_toplevel());w.grab_set();v=tk.StringVar(value=labels[0]);ttk.Combobox(w,textvariable=v,values=labels,state='readonly',width=50).pack(padx=15,pady=(25,10))
         def save():
             d=dev[labels.index(v.get())];c=_connect();c.execute('''INSERT INTO device_snmpv3_assignments(device_id,credential_id,updated_at) VALUES(?,?,?) ON CONFLICT(device_id) DO UPDATE SET credential_id=excluded.credential_id,updated_at=excluded.updated_at''',(d['id'],cid,_now()));c.commit();c.close();w.destroy();self.refresh()
-        tk.Button(w,text='Gán',command=save,bg='#2563EB',fg='white').pack(pady=8)
+        tk.Button(w,text='Gán',command=save,bg=UI_COLORS['primary'],fg=UI_COLORS['text']).pack(pady=8)
     def delete(self):
         i=self._selected();
         if not i or not messagebox.askyesno('SNMPv3','Xóa credential đã chọn?'):return
@@ -389,8 +390,8 @@ class VendorDriverPage:
     def __init__(self,parent,activity_callback=None):
         ensure_v12_tables();self.parent=parent;self.activity=activity_callback or (lambda m:None);self._build();self.refresh()
     def _build(self):
-        top=tk.Frame(self.parent,bg='#F3F4F6');top.pack(fill='x',padx=25,pady=(0,8));tk.Button(top,text='Thêm driver tùy chỉnh',command=self.add,bg='#2563EB',fg='white',relief='flat').pack(side='left');tk.Button(top,text='Sửa',command=self.edit).pack(side='left',padx=5);tk.Button(top,text='Gán cho thiết bị',command=self.assign).pack(side='left',padx=5);tk.Button(top,text='Làm mới',command=self.refresh).pack(side='left',padx=5)
-        pan=ttk.Panedwindow(self.parent,orient='horizontal');pan.pack(fill='both',expand=True,padx=25,pady=(0,10));l=tk.Frame(pan,bg='white');r=tk.Frame(pan,bg='white');pan.add(l,weight=3);pan.add(r,weight=2)
+        top=tk.Frame(self.parent,bg=UI_COLORS['background']);top.pack(fill='x',padx=25,pady=(0,8));tk.Button(top,text='Thêm driver tùy chỉnh',command=self.add,bg=UI_COLORS['primary'],fg=UI_COLORS['text'],relief='flat').pack(side='left');tk.Button(top,text='Sửa',command=self.edit).pack(side='left',padx=5);tk.Button(top,text='Gán cho thiết bị',command=self.assign).pack(side='left',padx=5);tk.Button(top,text='Làm mới',command=self.refresh).pack(side='left',padx=5)
+        pan=ttk.Panedwindow(self.parent,orient='horizontal');pan.pack(fill='both',expand=True,padx=25,pady=(0,10));l=tk.Frame(pan,bg=UI_COLORS['surface']);r=tk.Frame(pan,bg=UI_COLORS['surface']);pan.add(l,weight=3);pan.add(r,weight=2)
         cols=('name','vendor','priority','match','enabled');self.t=ttk.Treeview(l,columns=cols,show='headings')
         for c,h,w in [('name','Driver',210),('vendor','Hãng',110),('priority','Ưu tiên',70),('match','SysObject prefix',170),('enabled','Bật',50)]:self.t.heading(c,text=h);self.t.column(c,width=w,anchor='w')
         self.t.pack(fill='both',expand=True,padx=8,pady=8);self.t.bind('<<TreeviewSelect>>',lambda e:self.detail())
@@ -413,7 +414,7 @@ class VendorDriverPage:
         def save():
             if not v['name'].get().strip():messagebox.showwarning(title,'Nhập tên driver.',parent=w);return
             res.update({k:x.get().strip() for k,x in v.items()});w.destroy()
-        tk.Button(w,text='Lưu driver',command=save,bg='#2563EB',fg='white').grid(row=13,column=1,sticky='e',padx=12,pady=15);w.wait_window();return res or None
+        tk.Button(w,text='Lưu driver',command=save,bg=UI_COLORS['primary'],fg=UI_COLORS['text']).grid(row=13,column=1,sticky='e',padx=12,pady=15);w.wait_window();return res or None
     def add(self):
         d=self._dialog('Thêm driver');
         if not d:return
@@ -435,19 +436,19 @@ class VendorDriverPage:
         if not dev:return
         labels=[f"{d['name']} ({d['ip']})" for d in dev];w=tk.Toplevel(self.parent);w.title('Gán Driver');w.geometry('460x170');w.transient(self.parent.winfo_toplevel());w.grab_set();v=tk.StringVar(value=labels[0]);ttk.Combobox(w,textvariable=v,values=labels,state='readonly',width=50).pack(padx=15,pady=(25,10))
         def save():assign_driver(dev[labels.index(v.get())]['id'],dr,'manual');w.destroy()
-        tk.Button(w,text='Gán',command=save,bg='#2563EB',fg='white').pack(pady=8)
+        tk.Button(w,text='Gán',command=save,bg=UI_COLORS['primary'],fg=UI_COLORS['text']).pack(pady=8)
 
 
 class SecureSNMPDiagnosticsPage:
     def __init__(self,parent,activity_callback=None):
         ensure_v12_tables();self.parent=parent;self.activity=activity_callback or (lambda m:None);self.host=tk.StringVar();self.version=tk.StringVar(value='v2c');self.community=tk.StringVar(value='public');self.cred=tk.StringVar();self.status=tk.StringVar(value='Sẵn sàng');self._build();self.reload_credentials()
     def _build(self):
-        f=tk.Frame(self.parent,bg='white',bd=1,relief='solid');f.pack(fill='x',padx=25,pady=(0,10));
-        tk.Label(f,text='IP / Host',bg='white').grid(row=0,column=0,padx=(10,3),pady=10);tk.Entry(f,textvariable=self.host,width=20).grid(row=0,column=1)
-        tk.Label(f,text='Phiên bản',bg='white').grid(row=0,column=2,padx=(10,3));cb=ttk.Combobox(f,textvariable=self.version,values=['v2c','v3'],state='readonly',width=8);cb.grid(row=0,column=3);cb.bind('<<ComboboxSelected>>',lambda e:self._mode())
-        tk.Label(f,text='Community',bg='white').grid(row=0,column=4,padx=(10,3));self.comm_entry=tk.Entry(f,textvariable=self.community,width=14);self.comm_entry.grid(row=0,column=5)
-        tk.Label(f,text='SNMPv3 Credential',bg='white').grid(row=1,column=0,padx=(10,3),pady=(0,10));self.cred_cb=ttk.Combobox(f,textvariable=self.cred,state='readonly',width=28);self.cred_cb.grid(row=1,column=1,columnspan=2,sticky='w',pady=(0,10));tk.Button(f,text='Kiểm tra & nhận diện',command=self.test,bg='#0F766E',fg='white',relief='flat').grid(row=1,column=3,columnspan=2,padx=8,pady=(0,10));tk.Label(f,textvariable=self.status,bg='white',fg='#6B7280').grid(row=1,column=5,sticky='w')
-        body=tk.Frame(self.parent,bg='white',bd=1,relief='solid');body.pack(fill='both',expand=True,padx=25,pady=(0,10));self.out=tk.Text(body,wrap='word',font=('Consolas',10));self.out.pack(fill='both',expand=True,padx=10,pady=10);self._mode()
+        f=tk.Frame(self.parent,bg=UI_COLORS['surface'],bd=1,relief='solid');f.pack(fill='x',padx=25,pady=(0,10));
+        tk.Label(f,text='IP / Host',bg=UI_COLORS['surface']).grid(row=0,column=0,padx=(10,3),pady=10);tk.Entry(f,textvariable=self.host,width=20).grid(row=0,column=1)
+        tk.Label(f,text='Phiên bản',bg=UI_COLORS['surface']).grid(row=0,column=2,padx=(10,3));cb=ttk.Combobox(f,textvariable=self.version,values=['v2c','v3'],state='readonly',width=8);cb.grid(row=0,column=3);cb.bind('<<ComboboxSelected>>',lambda e:self._mode())
+        tk.Label(f,text='Community',bg=UI_COLORS['surface']).grid(row=0,column=4,padx=(10,3));self.comm_entry=tk.Entry(f,textvariable=self.community,width=14);self.comm_entry.grid(row=0,column=5)
+        tk.Label(f,text='SNMPv3 Credential',bg=UI_COLORS['surface']).grid(row=1,column=0,padx=(10,3),pady=(0,10));self.cred_cb=ttk.Combobox(f,textvariable=self.cred,state='readonly',width=28);self.cred_cb.grid(row=1,column=1,columnspan=2,sticky='w',pady=(0,10));tk.Button(f,text='Kiểm tra & nhận diện',command=self.test,bg=UI_COLORS['primary'],fg=UI_COLORS['text'],relief='flat').grid(row=1,column=3,columnspan=2,padx=8,pady=(0,10));tk.Label(f,textvariable=self.status,bg=UI_COLORS['surface'],fg=UI_COLORS['muted']).grid(row=1,column=5,sticky='w')
+        body=tk.Frame(self.parent,bg=UI_COLORS['surface'],bd=1,relief='solid');body.pack(fill='both',expand=True,padx=25,pady=(0,10));self.out=tk.Text(body,wrap='word',font=('Consolas',10));self.out.pack(fill='both',expand=True,padx=10,pady=10);self._mode()
     def reload_credentials(self):
         c=_connect();self.creds=[dict(r) for r in c.execute('SELECT * FROM snmpv3_credentials ORDER BY name')];c.close();vals=[x['name'] for x in self.creds];self.cred_cb['values']=vals
         if vals and not self.cred.get():self.cred.set(vals[0])

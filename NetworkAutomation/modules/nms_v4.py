@@ -1,3 +1,4 @@
+from modules.ui_theme import PALETTE as UI_COLORS
 import socket, threading, time
 from datetime import datetime
 import tkinter as tk
@@ -103,20 +104,22 @@ def evaluate_alert_rules():
 
 class BackgroundAlertEngine:
     def __init__(self,root,activity_callback=None,interval_ms=60000):
-        self.root=root;self.activity=activity_callback or (lambda m:None);self.interval_ms=interval_ms;self.job=None;self.running=True
+        self.root=root;self.activity=activity_callback or (lambda m:None);self.interval_ms=interval_ms;self.job=None;self.running=True;self.thread=None
         ensure_v4_tables();self.schedule(5000)
     def schedule(self,delay=None):
         if self.running:self.job=self.root.after(delay or self.interval_ms,self.tick)
     def tick(self):
+        if not self.running:return
         self.job=None
         def work():
             try:
                 a,b=evaluate_alert_rules()
-                if a or b:self.root.after(0,lambda:self.activity(f'Cảnh báo nền: {a} mới, {b} đã phục hồi'))
+                if self.running and (a or b):self.root.after(0,lambda:self.activity(f'Cảnh báo nền: {a} mới, {b} đã phục hồi'))
             finally:
-                try:self.root.after(0,self.schedule)
+                try:
+                    if self.running:self.root.after(0,self.schedule)
                 except Exception:pass
-        threading.Thread(target=work,daemon=True).start()
+        self.thread=threading.Thread(target=work,daemon=True);self.thread.start()
     def stop(self):
         self.running=False
         if self.job:
@@ -132,14 +135,14 @@ class AutoTopologyPage:
     def __init__(self,parent,activity_callback=None):
         ensure_v4_tables();self.parent=parent;self.activity=activity_callback or (lambda m:None);self.community=tk.StringVar(value='public');self.status=tk.StringVar(value='Sẵn sàng');self._build();self.refresh()
     def _build(self):
-        ctl=tk.Frame(self.parent,bg='white',bd=1,relief='solid');ctl.pack(fill='x',padx=25,pady=(0,10))
-        tk.Label(ctl,text='SNMP Community',bg='white').pack(side='left',padx=(10,4),pady=10);tk.Entry(ctl,textvariable=self.community,width=16).pack(side='left')
-        tk.Button(ctl,text='Phát hiện LLDP/CDP',command=self.discover,bg='#2563EB',fg='white',relief='flat').pack(side='left',padx=8)
-        tk.Button(ctl,text='Làm mới',command=self.refresh).pack(side='left');tk.Label(ctl,textvariable=self.status,bg='white',fg='#6B7280').pack(side='left',padx=10)
-        box=tk.Frame(self.parent,bg='white',bd=1,relief='solid');box.pack(fill='both',expand=True,padx=25,pady=(0,10));cols=('protocol','local','lport','remote','rport','time');self.t=ttk.Treeview(box,columns=cols,show='headings')
+        ctl=tk.Frame(self.parent,bg=UI_COLORS['surface'],bd=1,relief='solid');ctl.pack(fill='x',padx=25,pady=(0,10))
+        tk.Label(ctl,text='SNMP Community',bg=UI_COLORS['surface']).pack(side='left',padx=(10,4),pady=10);tk.Entry(ctl,textvariable=self.community,width=16).pack(side='left')
+        tk.Button(ctl,text='Phát hiện LLDP/CDP',command=self.discover,bg=UI_COLORS['primary'],fg=UI_COLORS['text'],relief='flat').pack(side='left',padx=8)
+        tk.Button(ctl,text='Làm mới',command=self.refresh).pack(side='left');tk.Label(ctl,textvariable=self.status,bg=UI_COLORS['surface'],fg=UI_COLORS['muted']).pack(side='left',padx=10)
+        box=tk.Frame(self.parent,bg=UI_COLORS['surface'],bd=1,relief='solid');box.pack(fill='both',expand=True,padx=25,pady=(0,10));cols=('protocol','local','lport','remote','rport','time');self.t=ttk.Treeview(box,columns=cols,show='headings')
         for c,h,w in [('protocol','Giao thức',90),('local','Thiết bị cục bộ',150),('lport','Cổng cục bộ',130),('remote','Thiết bị láng giềng',210),('rport','Cổng láng giềng',150),('time','Phát hiện lúc',160)]:self.t.heading(c,text=h);self.t.column(c,width=w,anchor='w')
         self.t.pack(fill='both',expand=True,padx=8,pady=8)
-        tk.Label(self.parent,text='LLDP/CDP phải được bật trên thiết bị và SNMP v2c phải cho phép đọc các MIB tương ứng.',bg='#F3F4F6',fg='#6B7280').pack(anchor='w',padx=25,pady=(0,8))
+        tk.Label(self.parent,text='LLDP/CDP phải được bật trên thiết bị và SNMP v2c phải cho phép đọc các MIB tương ứng.',bg=UI_COLORS['background'],fg=UI_COLORS['muted']).pack(anchor='w',padx=25,pady=(0,8))
     def refresh(self):
         c=_connect();rows=c.execute('SELECT * FROM discovery_links ORDER BY discovered_at DESC').fetchall();c.close()
         for x in self.t.get_children():self.t.delete(x)

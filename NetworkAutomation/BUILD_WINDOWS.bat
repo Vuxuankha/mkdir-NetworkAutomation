@@ -48,7 +48,7 @@ if exist "%ISCC%" (
   echo Phat hien Inno Setup. Dang tao Setup.exe...
   "%ISCC%" "installer\NetworkAutomation.iss" || goto :fail
   echo.
-  echo Setup: release\NetworkAutomation_Setup_v1.0.0.exe
+  echo Setup: release\NetworkAutomation_Setup_v1.5.0.exe
 ) else (
   echo Inno Setup 6 chua duoc cai. EXE van da build thanh cong.
   echo Cai Inno Setup 6 va chay BUILD_INSTALLER.bat de tao Setup.exe.

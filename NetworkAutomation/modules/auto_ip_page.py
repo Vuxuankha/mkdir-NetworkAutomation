@@ -1,5 +1,6 @@
 """Tk UI for the independent IP/Excel workflow. Workers never touch widgets."""
 from __future__ import annotations
+from modules.ui_theme import PALETTE as UI_COLORS
 
 import json
 import tkinter as tk
@@ -12,7 +13,7 @@ from modules.auto_ip import (AutomationEngine, Options, TASK_NAMES, connect, cre
                             export_report, load_options, load_targets, parse_excel, parse_text,
                             profiles, run_history, run_steps, save_options, save_profile, save_targets)
 
-BG = '#F3F4F6'
+BG = UI_COLORS['background']
 STATE_TEXT = {'Ready': 'S\u1eb5n s\u00e0ng', 'Starting': '\u0110ang kh\u1edfi t\u1ea1o',
               'Running': '\u0110ang ch\u1ea1y', 'Stopping': '\u0110ang d\u1eebng',
               'Stopped': '\u0110\u00e3 d\u1eebng', 'Completed': '\u0110\u00e3 xong l\u01b0\u1ee3t',
@@ -67,7 +68,7 @@ class AutoIPPage:
     def _build_run(self):
         f = self.run_tab
         ttk.Label(f, text='Ch\u1ec9 ch\u1ea1y c\u00e1c t\u00e1c v\u1ee5 \u0111\u01b0\u1ee3c ch\u1ecdn. Kh\u00f4ng thay \u0111\u1ed5i/kh\u00f4i ph\u1ee5c c\u1ea5u h\u00ecnh thi\u1ebft b\u1ecb.',
-                  wraplength=820, foreground='#374151').pack(fill='x', pady=(0, 8))
+                  wraplength=820, foreground=UI_COLORS['text']).pack(fill='x', pady=(0, 8))
         source = ttk.LabelFrame(f, text='1. Nh\u1eadp IP ho\u1eb7c Excel (.xlsx)', padding=8)
         source.pack(fill='x')
         self.text = tk.Text(source, height=3, width=50, font=('Consolas', 10), wrap='word')
@@ -134,9 +135,9 @@ class AutoIPPage:
         email_entry = ttk.Entry(email_row, textvariable=self.vars['report_email_to'], width=34)
         email_entry.pack(side='left', padx=6)
         self.controls.append(email_entry)
-        ttk.Label(email_row, text='(\u0111\u1ec3 tr\u1ed1ng = Email To trong Notification Center)', foreground='#6B7280').pack(side='left')
+        ttk.Label(email_row, text='(\u0111\u1ec3 tr\u1ed1ng = Email To trong Notification Center)', foreground=UI_COLORS['muted']).pack(side='left')
         ttk.Label(config, text='SMTP/Gmail d\u00f9ng c\u1ea5u h\u00ecnh trong Notification Center. Khi b\u1eadt g\u1eedi email, app lu\u00f4n t\u1ea1o file Excel v\u00e0 \u0111\u00ednh k\u00e8m sau m\u1ed7i l\u01b0\u1ee3t ch\u1ea1y. Backup/Th\u00f4ng b\u00e1o m\u1eb7c \u0111\u1ecbnh t\u1eaft.',
-                  foreground='#6B7280', wraplength=800).grid(row=7, column=0, columnspan=4, sticky='w', pady=(4, 0))
+                  foreground=UI_COLORS['muted'], wraplength=800).grid(row=7, column=0, columnspan=4, sticky='w', pady=(4, 0))
         self.authorized = tk.BooleanVar(value=False)
         ttk.Checkbutton(f, text='T\u00f4i c\u00f3 quy\u1ec1n qu\u1ea3n tr\u1ecb c\u00e1c IP n\u00e0y v\u00e0 \u0111\u1ed3ng \u00fd ch\u1ea1y c\u00e1c t\u00e1c v\u1ee5 \u0111\u00e3 ch\u1ecdn.',
                         variable=self.authorized).pack(anchor='w')
@@ -150,11 +151,11 @@ class AutoIPPage:
         self.progress = ttk.Progressbar(bar, mode='determinate')
         self.progress.pack(side='left', fill='x', expand=True, padx=(12, 0))
         self.status = tk.StringVar(value='S\u1eb5n s\u00e0ng')
-        ttk.Label(f, textvariable=self.status, wraplength=820, foreground='#1D4ED8').pack(fill='x', pady=(0, 5))
+        ttk.Label(f, textvariable=self.status, wraplength=820, foreground=UI_COLORS['accent']).pack(fill='x', pady=(0, 5))
         self.table = self._result_table(f)
         self.table.bind('<Double-1>', lambda e: self.show_detail(self.table, self.rows))
         ttk.Label(f, text='OK = xong; WARN = c\u1ea7n xem; SKIP = thi\u1ebfu \u0111i\u1ec1u ki\u1ec7n; ERROR = l\u1ed7i; CANCEL = \u0111\u00e3 d\u1eebng. Nh\u1ea5p \u0111\u00fap \u0111\u1ec3 xem chi ti\u1ebft.',
-                  wraplength=820, foreground='#6B7280').pack(fill='x', pady=5)
+                  wraplength=820, foreground=UI_COLORS['muted']).pack(fill='x', pady=5)
         ttk.Label(f, text='Lu\u1ed3ng n\u00e0y ti\u1ebfp t\u1ee5c khi chuy\u1ec3n m\u00e0n h\u00ecnh; d\u1eebng khi tho\u00e1t \u1ee9ng d\u1ee5ng. D\u1eef li\u1ec7u thu th\u1eadp \u0111\u01b0\u1ee3c l\u01b0u v\u00e0o NMS chung.',
                   wraplength=820).pack(fill='x')
 

@@ -1,3 +1,4 @@
+from modules.ui_theme import PALETTE as UI_COLORS
 import csv
 from datetime import datetime, timedelta
 import tkinter as tk
@@ -216,14 +217,14 @@ class SLAAvailabilityPage:
         ensure_v9_tables(); self.parent=parent; self.activity=activity_callback or (lambda m:None); self.role=role
         self._build(); self.refresh_policies()
     def _build(self):
-        ctl=tk.Frame(self.parent,bg='#F3F4F6');ctl.pack(fill='x',padx=25,pady=(0,8))
-        self.add_btn=tk.Button(ctl,text='Thêm SLA',command=self.add_policy,bg='#2563EB',fg='white',relief='flat');self.add_btn.pack(side='left')
+        ctl=tk.Frame(self.parent,bg=UI_COLORS['background']);ctl.pack(fill='x',padx=25,pady=(0,8))
+        self.add_btn=tk.Button(ctl,text='Thêm SLA',command=self.add_policy,bg=UI_COLORS['primary'],fg=UI_COLORS['text'],relief='flat');self.add_btn.pack(side='left')
         self.del_btn=tk.Button(ctl,text='Xóa',command=self.delete_policy);self.del_btn.pack(side='left',padx=5)
         tk.Button(ctl,text='Tính SLA',command=self.calculate).pack(side='left',padx=5)
         tk.Button(ctl,text='Xuất CSV',command=self.export_csv).pack(side='left',padx=5)
         if self.role=='Viewer': self.add_btn.configure(state='disabled'); self.del_btn.configure(state='disabled')
         pan=ttk.Panedwindow(self.parent,orient='vertical');pan.pack(fill='both',expand=True,padx=25,pady=(0,12))
-        top=tk.Frame(pan,bg='white');bot=tk.Frame(pan,bg='white');pan.add(top,weight=1);pan.add(bot,weight=2)
+        top=tk.Frame(pan,bg=UI_COLORS['surface']);bot=tk.Frame(pan,bg=UI_COLORS['surface']);pan.add(top,weight=1);pan.add(bot,weight=2)
         cols=('id','name','scope','target','days','enabled');self.policies=ttk.Treeview(top,columns=cols,show='headings',height=6)
         for c,h,w in [('id','ID',45),('name','Tên SLA',220),('scope','Phạm vi',220),('target','Mục tiêu',100),('days','Chu kỳ',80),('enabled','Bật',60)]:self.policies.heading(c,text=h);self.policies.column(c,width=w,anchor='w')
         self.policies.pack(fill='both',expand=True,padx=8,pady=8)
@@ -255,7 +256,7 @@ class SLAAvailabilityPage:
             if not name.get().strip():messagebox.showwarning('SLA','Nhập tên SLA.',parent=w);return
             c=_connect();c.execute('''INSERT INTO sla_policies(name,scope_type,scope_id,host,target_percent,period_days,enabled,note,created_at,updated_at)
                                      VALUES(?,?,?,?,?,?,1,?,?,?)''',(name.get().strip(),scope.get(),sid,host.get().strip(),tar,period,note.get().strip(),_now(),_now()));c.commit();c.close();self.activity('Đã thêm chính sách SLA: '+name.get().strip());w.destroy();self.refresh_policies()
-        tk.Button(w,text='Lưu',command=save,bg='#2563EB',fg='white').grid(row=len(fields),column=1,sticky='e',padx=8,pady=14)
+        tk.Button(w,text='Lưu',command=save,bg=UI_COLORS['primary'],fg=UI_COLORS['text']).grid(row=len(fields),column=1,sticky='e',padx=8,pady=14)
     def delete_policy(self):
         p=self._selected_policy()
         if not p:return
@@ -284,8 +285,8 @@ class IncidentCenterPage:
     def __init__(self,parent,activity_callback=None,role='Viewer',username=''):
         ensure_v9_tables();self.parent=parent;self.activity=activity_callback or (lambda m:None);self.role=role;self.username=username or 'local-admin';self._build();self.refresh()
     def _build(self):
-        ctl=tk.Frame(self.parent,bg='#F3F4F6');ctl.pack(fill='x',padx=25,pady=(0,8))
-        tk.Button(ctl,text='Đồng bộ cảnh báo',command=self.sync,bg='#2563EB',fg='white',relief='flat').pack(side='left')
+        ctl=tk.Frame(self.parent,bg=UI_COLORS['background']);ctl.pack(fill='x',padx=25,pady=(0,8))
+        tk.Button(ctl,text='Đồng bộ cảnh báo',command=self.sync,bg=UI_COLORS['primary'],fg=UI_COLORS['text'],relief='flat').pack(side='left')
         self.ack_btn=tk.Button(ctl,text='Xác nhận',command=self.ack);self.ack_btn.pack(side='left',padx=5)
         self.resolve_btn=tk.Button(ctl,text='Đóng sự cố',command=self.resolve);self.resolve_btn.pack(side='left',padx=5)
         tk.Button(ctl,text='Làm mới',command=self.refresh).pack(side='left',padx=5)
@@ -324,10 +325,10 @@ class CapacityPlanningPage:
     def __init__(self,parent,activity_callback=None):
         ensure_v9_tables();self.parent=parent;self.activity=activity_callback or (lambda m:None);self.host=tk.StringVar();self.period=tk.StringVar(value='7 ngày');self._build()
     def _build(self):
-        ctl=tk.Frame(self.parent,bg='white',bd=1,relief='solid');ctl.pack(fill='x',padx=25,pady=(0,10))
-        tk.Label(ctl,text='Host',bg='white').pack(side='left',padx=(10,3),pady=10);tk.Entry(ctl,textvariable=self.host,width=20).pack(side='left')
-        tk.Label(ctl,text='Khoảng thời gian',bg='white').pack(side='left',padx=(12,3));ttk.Combobox(ctl,textvariable=self.period,values=['24 giờ','7 ngày','30 ngày','90 ngày'],state='readonly',width=12).pack(side='left')
-        tk.Button(ctl,text='Phân tích',command=self.analyze,bg='#2563EB',fg='white',relief='flat').pack(side='left',padx=8)
+        ctl=tk.Frame(self.parent,bg=UI_COLORS['surface'],bd=1,relief='solid');ctl.pack(fill='x',padx=25,pady=(0,10))
+        tk.Label(ctl,text='Host',bg=UI_COLORS['surface']).pack(side='left',padx=(10,3),pady=10);tk.Entry(ctl,textvariable=self.host,width=20).pack(side='left')
+        tk.Label(ctl,text='Khoảng thời gian',bg=UI_COLORS['surface']).pack(side='left',padx=(12,3));ttk.Combobox(ctl,textvariable=self.period,values=['24 giờ','7 ngày','30 ngày','90 ngày'],state='readonly',width=12).pack(side='left')
+        tk.Button(ctl,text='Phân tích',command=self.analyze,bg=UI_COLORS['primary'],fg=UI_COLORS['text'],relief='flat').pack(side='left',padx=8)
         cols=('metric','avg','max','trend','advice');self.t=ttk.Treeview(self.parent,columns=cols,show='headings')
         for c,h,w in [('metric','Chỉ số',150),('avg','Trung bình/Tổng',140),('max','Cao nhất',120),('trend','Xu hướng',110),('advice','Gợi ý vận hành',430)]:self.t.heading(c,text=h);self.t.column(c,width=w,anchor='w')
         self.t.pack(fill='both',expand=True,padx=25,pady=(0,12))

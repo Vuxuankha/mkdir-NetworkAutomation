@@ -1,3 +1,4 @@
+from modules.ui_theme import PALETTE as UI_COLORS
 import sqlite3
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
@@ -104,15 +105,15 @@ class OrganizationPage:
         self._build(); self.refresh()
 
     def _build(self):
-        ctl = tk.Frame(self.parent, bg='#F3F4F6'); ctl.pack(fill='x', padx=25, pady=(0,8))
-        tk.Button(ctl, text='Thêm Site', command=self.add_site, bg='#2563EB', fg='white', relief='flat').pack(side='left')
+        ctl = tk.Frame(self.parent, bg=UI_COLORS['background']); ctl.pack(fill='x', padx=25, pady=(0,8))
+        tk.Button(ctl, text='Thêm Site', command=self.add_site, bg=UI_COLORS['primary'], fg=UI_COLORS['text'], relief='flat').pack(side='left')
         tk.Button(ctl, text='Thêm nhóm', command=self.add_group).pack(side='left', padx=5)
         tk.Button(ctl, text='Gán Site / Nhóm', command=self.assign).pack(side='left', padx=5)
         tk.Button(ctl, text='Sửa VLAN / Tags', command=self.edit_meta).pack(side='left', padx=5)
         tk.Button(ctl, text='Làm mới', command=self.refresh).pack(side='left', padx=5)
-        tk.Label(ctl, textvariable=self.status, bg='#F3F4F6', fg='#6B7280').pack(side='left', padx=12)
+        tk.Label(ctl, textvariable=self.status, bg=UI_COLORS['background'], fg=UI_COLORS['muted']).pack(side='left', padx=12)
 
-        box = tk.Frame(self.parent, bg='white', bd=1, relief='solid'); box.pack(fill='both', expand=True, padx=25, pady=(0,10))
+        box = tk.Frame(self.parent, bg=UI_COLORS['surface'], bd=1, relief='solid'); box.pack(fill='both', expand=True, padx=25, pady=(0,10))
         cols = ('name','ip','vendor','site','group','vlan','tags')
         self.table = ttk.Treeview(box, columns=cols, show='headings')
         defs = [('name','Thiết bị',180),('ip','IP',130),('vendor','Hãng',120),('site','Site',150),('group','Nhóm',150),('vlan','VLAN',90),('tags','Tags',220)]
@@ -177,7 +178,7 @@ class OrganizationPage:
             c=_connect();c.execute('''INSERT INTO device_organization(device_id,site_id,group_id,updated_at) VALUES(?,?,?,?)
               ON CONFLICT(device_id) DO UPDATE SET site_id=excluded.site_id,group_id=excluded.group_id,updated_at=excluded.updated_at''',(did,sid,gid,_now()));c.commit();c.close()
             self.activity('Đã cập nhật Site/Nhóm cho thiết bị');w.destroy();self.refresh()
-        tk.Button(w,text='Lưu',command=save,bg='#2563EB',fg='white',relief='flat').pack(pady=18)
+        tk.Button(w,text='Lưu',command=save,bg=UI_COLORS['primary'],fg=UI_COLORS['text'],relief='flat').pack(pady=18)
 
     def edit_meta(self):
         did=self._selected()
@@ -195,18 +196,18 @@ class MaintenanceWindowsPage:
     def __init__(self,parent,activity_callback=None):
         ensure_v8_tables(); self.parent=parent; self.activity=activity_callback or (lambda m:None); self.status=tk.StringVar(value='Sẵn sàng'); self._build(); self.refresh()
     def _build(self):
-        ctl=tk.Frame(self.parent,bg='#F3F4F6');ctl.pack(fill='x',padx=25,pady=(0,8))
-        tk.Button(ctl,text='Thêm lịch bảo trì',command=self.add,bg='#2563EB',fg='white',relief='flat').pack(side='left')
+        ctl=tk.Frame(self.parent,bg=UI_COLORS['background']);ctl.pack(fill='x',padx=25,pady=(0,8))
+        tk.Button(ctl,text='Thêm lịch bảo trì',command=self.add,bg=UI_COLORS['primary'],fg=UI_COLORS['text'],relief='flat').pack(side='left')
         tk.Button(ctl,text='Bật / Tắt',command=self.toggle).pack(side='left',padx=5)
         tk.Button(ctl,text='Xóa',command=self.delete).pack(side='left',padx=5)
         tk.Button(ctl,text='Làm mới',command=self.refresh).pack(side='left',padx=5)
-        tk.Label(ctl,textvariable=self.status,bg='#F3F4F6',fg='#6B7280').pack(side='left',padx=12)
-        box=tk.Frame(self.parent,bg='white',bd=1,relief='solid');box.pack(fill='both',expand=True,padx=25,pady=(0,10))
+        tk.Label(ctl,textvariable=self.status,bg=UI_COLORS['background'],fg=UI_COLORS['muted']).pack(side='left',padx=12)
+        box=tk.Frame(self.parent,bg=UI_COLORS['surface'],bd=1,relief='solid');box.pack(fill='both',expand=True,padx=25,pady=(0,10))
         cols=('name','scope','target','start','end','alerts','enabled')
         self.t=ttk.Treeview(box,columns=cols,show='headings')
         for c,h,w in [('name','Tên',180),('scope','Phạm vi',90),('target','Đối tượng',180),('start','Bắt đầu',160),('end','Kết thúc',160),('alerts','Tắt cảnh báo',100),('enabled','Bật',70)]:self.t.heading(c,text=h);self.t.column(c,width=w,anchor='w')
         self.t.pack(fill='both',expand=True,padx=8,pady=8)
-        tk.Label(self.parent,text='Trong thời gian bảo trì, Alert Rules sẽ không tạo cảnh báo mới cho thiết bị nằm trong phạm vi đã chọn.',bg='#F3F4F6',fg='#6B7280').pack(anchor='w',padx=25,pady=(0,8))
+        tk.Label(self.parent,text='Trong thời gian bảo trì, Alert Rules sẽ không tạo cảnh báo mới cho thiết bị nằm trong phạm vi đã chọn.',bg=UI_COLORS['background'],fg=UI_COLORS['muted']).pack(anchor='w',padx=25,pady=(0,8))
     def _selected(self):
         s=self.t.selection();return int(s[0]) if s else None
     def refresh(self):
@@ -253,7 +254,7 @@ class MaintenanceWindowsPage:
             sid,host=mapping.get(target.get(),(None,None))
             if scope.get()!='All' and not target.get():messagebox.showwarning('Bảo trì','Chọn đối tượng.',parent=w);return
             c=_connect();c.execute('''INSERT INTO maintenance_windows(name,scope_type,scope_id,host,start_at,end_at,suppress_alerts,enabled,note,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)''',(name.get().strip(),scope.get(),sid,host,start.get().strip(),end.get().strip(),1 if sup.get() else 0,1,note.get().strip(),_now(),_now()));c.commit();c.close();self.activity('Đã thêm lịch bảo trì: '+name.get().strip());w.destroy();self.refresh()
-        tk.Button(w,text='Lưu lịch',command=save,bg='#2563EB',fg='white',relief='flat').pack(pady=8)
+        tk.Button(w,text='Lưu lịch',command=save,bg=UI_COLORS['primary'],fg=UI_COLORS['text'],relief='flat').pack(pady=8)
     def toggle(self):
         i=self._selected()
         if not i:return

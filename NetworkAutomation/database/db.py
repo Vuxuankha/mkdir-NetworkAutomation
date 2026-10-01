@@ -2,7 +2,8 @@
 import sqlite3
 import ipaddress
 from pathlib import Path
-from app_runtime import DATABASE_DIR, migrate_portable_data_once
+from app_runtime import DATABASE_DIR, RESOURCE_DIR, migrate_portable_data_once
+from upgrade_backup import backup_before_release
 from datetime import datetime
 
 
@@ -30,7 +31,7 @@ def get_connection(timeout=15.0):
     conn = sqlite3.connect(DB_PATH, timeout=float(timeout))
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
-    conn.execute("PRAGMA busy_timeout = 5000")
+    conn.execute(f"PRAGMA busy_timeout = {max(0, int(float(timeout) * 1000))}")
     conn.execute("PRAGMA journal_mode = WAL")
     conn.execute("PRAGMA synchronous = NORMAL")
     conn.execute("PRAGMA temp_store = MEMORY")
@@ -403,6 +404,8 @@ def init_database():
     """
 
     db_preexisting = DB_PATH.exists() and DB_PATH.stat().st_size > 0
+    if db_preexisting:
+        backup_before_release(DB_PATH, RESOURCE_DIR)
     conn = get_connection()
     cursor = conn.cursor()
 

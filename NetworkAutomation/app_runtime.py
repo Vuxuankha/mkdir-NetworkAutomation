@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import logging
+import json
+from logging.handlers import RotatingFileHandler
 import os
 import shutil
 import subprocess
@@ -34,6 +36,15 @@ def data_root() -> Path:
     compatibility. A packaged Windows build writes under LOCALAPPDATA so it
     never needs write permission in Program Files.
     """
+    override = os.environ.get("NETWORK_AUTOMATION_DATA_DIR")
+    if override:
+        return Path(override).expanduser().resolve()
+    config = install_root() / "data_location.json"
+    if config.exists():
+        value = json.loads(config.read_text(encoding="utf-8")).get("data_dir")
+        if not value or not Path(value).is_absolute():
+            raise ValueError("data_location.json phải chứa data_dir là đường dẫn tuyệt đối.")
+        return Path(value).resolve()
     if not is_frozen():
         return Path(__file__).resolve().parent
     base = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA")
@@ -114,10 +125,9 @@ def setup_logging() -> Path:
         if sys.stderr is None:
             sys.stderr = stream
     logging.basicConfig(
-        filename=log_file,
+        handlers=[RotatingFileHandler(log_file, maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8")],
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-        encoding="utf-8",
     )
     logging.getLogger(__name__).info(
         "Application start frozen=%s data_dir=%s", is_frozen(), DATA_DIR

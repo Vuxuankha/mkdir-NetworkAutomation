@@ -5,7 +5,9 @@ import ipaddress
 import re
 import time
 import threading
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import math
+import queue
+from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
 from datetime import datetime
 from app_runtime import hidden_subprocess_kwargs
 
@@ -45,7 +47,7 @@ def ping_host(ip, timeout=1000, stop_event=None):
 
         timeout_seconds = max(
             1,
-            int(timeout / 1000)
+            math.ceil(timeout / 1000)
         )
 
         command = [
@@ -66,6 +68,7 @@ def ping_host(ip, timeout=1000, stop_event=None):
             text=True,
             encoding="utf-8",
             errors="ignore",
+            timeout=max(1, timeout / 1000) + 2,
             **hidden_subprocess_kwargs()
         )
 
@@ -84,20 +87,41 @@ def ping_host(ip, timeout=1000, stop_event=None):
 # GET HOSTNAME
 # ==========================================================
 
-def get_hostname(ip):
-    """
-    Lấy hostname từ IP.
-    """
+_dns_slots = threading.BoundedSemaphore(16)
 
+
+def get_hostname(ip, timeout=1.0, stop_event=None):
+    """Bound caller wait and resolver concurrency, even if OS DNS hangs."""
+    if stop_event is not None and stop_event.is_set():
+        return ''
+    if not _dns_slots.acquire(blocking=False):
+        return ''
+    result = queue.Queue(maxsize=1)
+    def resolve():
+        try:
+            try:
+                name = socket.gethostbyaddr(ip)[0]
+            except Exception:
+                name = ''
+            result.put_nowait(name)
+        finally:
+            _dns_slots.release()
+    thread = threading.Thread(target=resolve, daemon=True)
     try:
-
-        hostname = socket.gethostbyaddr(ip)[0]
-
-        return hostname
-
+        thread.start()
     except Exception:
-
-        return ""
+        _dns_slots.release()
+        raise
+    deadline = time.monotonic() + timeout
+    while stop_event is None or not stop_event.is_set():
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return ''
+        try:
+            return result.get(timeout=min(.05, remaining))
+        except queue.Empty:
+            pass
+    return ''
 
 
 # ==========================================================
@@ -118,6 +142,7 @@ def get_mac_from_arp(ip):
             text=True,
             encoding="cp850",
             errors="ignore",
+            timeout=3,
             **hidden_subprocess_kwargs()
         )
 
@@ -156,7 +181,9 @@ def scan_host(
     ip,
     timeout=1000,
     stop_event=None,
-    callback=None
+    callback=None,
+    resolve_hostnames=True,
+    dns_timeout=1.0
 ):
     """
     Scan một host.
@@ -228,9 +255,7 @@ def scan_host(
 
     if online:
 
-        hostname = get_hostname(
-            ip
-        )
+        hostname = get_hostname(ip, dns_timeout, stop_event) if resolve_hostnames else ""
 
         mac = get_mac_from_arp(
             ip
@@ -249,6 +274,9 @@ def scan_host(
         mac = ""
 
         status = "Offline"
+
+    if stop_event is not None and stop_event.is_set():
+        return None
 
     # ------------------------------------------------------
     # DURATION
@@ -315,7 +343,9 @@ def scan_network(
     max_workers=50,
     timeout=1000,
     stop_event=None,
-    callback=None
+    callback=None,
+    resolve_hostnames=True,
+    dns_timeout=1.0
 ):
     """
     Scan toàn bộ network.
@@ -359,147 +389,55 @@ def scan_network(
     # GET HOSTS
     # ------------------------------------------------------
 
-    hosts = [
-        str(ip)
-        for ip in net.hosts()
-    ]
-
-    total_hosts = len(hosts)
-
-    print(
-        f"Total hosts: {total_hosts}"
-    )
-
-    # ------------------------------------------------------
-    # CALLBACK TOTAL
-    # ------------------------------------------------------
-
+    if not isinstance(max_workers, int) or not 1 <= max_workers <= 256:
+        raise ValueError('Số luồng phải từ 1 đến 256.')
+    if not isinstance(timeout, (int, float)) or not math.isfinite(timeout) or timeout <= 0:
+        raise ValueError('Timeout phải là số dương hữu hạn (ms).')
+    if not isinstance(dns_timeout, (int, float)) or not math.isfinite(dns_timeout) or dns_timeout <= 0:
+        raise ValueError('DNS timeout phải là số dương hữu hạn (giây).')
+    total_hosts = net.num_addresses
+    if net.version == 4 and net.prefixlen < 31:
+        total_hosts -= 2
+    elif net.version == 6 and net.prefixlen < 127:
+        total_hosts -= 1
     if callback is not None:
-
         try:
-
-            callback(
-                {
-                    "event": "total",
-                    "total": total_hosts
-                }
-            )
-
+            callback({'event': 'total', 'total': total_hosts})
         except Exception:
             pass
-
+    stop_event = stop_event if stop_event is not None else threading.Event()
     results = []
-
-    if not hosts:
-
+    if stop_event.is_set():
         return results
-
-    # ------------------------------------------------------
-    # STOP EVENT
-    # ------------------------------------------------------
-
-    if stop_event is None:
-
-        stop_event = threading.Event()
-
-    # ------------------------------------------------------
-    # EXECUTOR
-    # ------------------------------------------------------
-
-    executor = ThreadPoolExecutor(
-        max_workers=max_workers
-    )
-
+    hosts = iter(net.hosts())
+    executor = ThreadPoolExecutor(max_workers=max_workers)
     futures = {}
-
+    exhausted = False
     try:
-
-        # --------------------------------------------------
-        # SUBMIT TASKS
-        # --------------------------------------------------
-
-        for ip in hosts:
-
-            if stop_event.is_set():
-
+        while not stop_event.is_set():
+            # Keep only a small window of tasks; never materialize the subnet.
+            while not exhausted and len(futures) < max_workers * 2 and not stop_event.is_set():
+                ip = next(hosts, None)
+                if ip is None:
+                    exhausted = True
+                    break
+                future = executor.submit(scan_host, str(ip), timeout, stop_event, callback, resolve_hostnames, dns_timeout)
+                futures[future] = str(ip)
+            if not futures:
                 break
-
-            future = executor.submit(
-                scan_host,
-                ip,
-                timeout,
-                stop_event,
-                callback
-            )
-
-            futures[future] = ip
-
-        # --------------------------------------------------
-        # GET RESULTS REALTIME
-        # --------------------------------------------------
-
-        for future in as_completed(
-            futures
-        ):
-
-            ip = futures[future]
-
-            try:
-
-                result = future.result()
-
-                if result is not None:
-
-                    results.append(
-                        result
-                    )
-
-                    print(
-                        f"{ip} -> "
-                        f"{result['status']} "
-                        f"({result['duration']}s)"
-                    )
-
-            except Exception as error:
-
-                print(
-                    f"Scan error {ip}: {error}"
-                )
-
-            # --------------------------------------------------
-            # STOP
-            # --------------------------------------------------
-
-            if stop_event.is_set():
-
-                for pending_future in futures:
-
-                    if not pending_future.done():
-
-                        pending_future.cancel()
-
-                break
-
+            done, _ = wait(futures, timeout=.1, return_when=FIRST_COMPLETED)
+            for future in done:
+                ip = futures.pop(future)
+                try:
+                    result = future.result()
+                    if result is not None:
+                        results.append(result)
+                except Exception as error:
+                    print(f'Scan error {ip}: {error}')
     finally:
-
-        # --------------------------------------------------
-        # CANCEL PENDING
-        # --------------------------------------------------
-
         for future in futures:
-
-            if not future.done():
-
-                future.cancel()
-
-        # --------------------------------------------------
-        # SHUTDOWN
-        # --------------------------------------------------
-
-        executor.shutdown(
-            wait=False,
-            cancel_futures=True
-        )
+            future.cancel()
+        executor.shutdown(wait=False, cancel_futures=True)
 
     # ------------------------------------------------------
     # SORT RESULTS

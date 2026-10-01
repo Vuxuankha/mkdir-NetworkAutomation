@@ -1,3 +1,4 @@
+from modules.ui_theme import PALETTE as UI_COLORS
 import base64
 import hashlib
 import hmac
@@ -135,7 +136,7 @@ def authenticate(username, password):
         c.execute('INSERT INTO auth_log(username,success,detail,created_at) VALUES(?,?,?,?)',
                   (username, 1 if ok else 0, 'Đăng nhập thành công' if ok else 'Sai tài khoản hoặc mật khẩu', _now()))
         c.commit()
-        return dict(r) if ok else None
+        return {key: r[key] for key in ('id', 'username', 'role', 'enabled', 'created_at', 'updated_at')} if ok else None
     finally:
         c.close()
 
@@ -143,7 +144,7 @@ def authenticate(username, password):
 def has_local_users():
     ensure_v5_tables(); c = _connect()
     try:
-        return c.execute('SELECT COUNT(*) FROM app_users WHERE enabled=1').fetchone()[0] > 0
+        return c.execute('SELECT COUNT(*) FROM app_users').fetchone()[0] > 0
     finally:
         c.close()
 
@@ -185,20 +186,20 @@ class CredentialManagerPage:
         self._build(); self.refresh()
 
     def _build(self):
-        ctl=tk.Frame(self.parent,bg='#F3F4F6'); ctl.pack(fill='x',padx=25,pady=(0,8))
-        tk.Button(ctl,text='Thêm Credential',command=self.add,bg='#2563EB',fg='white',relief='flat').pack(side='left')
+        ctl=tk.Frame(self.parent,bg=UI_COLORS['background']); ctl.pack(fill='x',padx=25,pady=(0,8))
+        tk.Button(ctl,text='Thêm Credential',command=self.add,bg=UI_COLORS['primary'],fg=UI_COLORS['text'],relief='flat').pack(side='left')
         tk.Button(ctl,text='Sửa',command=self.edit).pack(side='left',padx=5)
         tk.Button(ctl,text='Gán cho thiết bị',command=self.assign).pack(side='left',padx=5)
         tk.Button(ctl,text='Kiểm tra SSH',command=self.test).pack(side='left',padx=5)
         tk.Button(ctl,text='Xóa',command=self.delete).pack(side='left',padx=5)
         tk.Button(ctl,text='Làm mới',command=self.refresh).pack(side='left',padx=5)
-        box=tk.Frame(self.parent,bg='white',bd=1,relief='solid'); box.pack(fill='both',expand=True,padx=25,pady=(0,10))
+        box=tk.Frame(self.parent,bg=UI_COLORS['surface'],bd=1,relief='solid'); box.pack(fill='both',expand=True,padx=25,pady=(0,10))
         cols=('name','kind','username','port','assigned','note','updated')
         self.t=ttk.Treeview(box,columns=cols,show='headings',selectmode='browse')
         for c,h,w in [('name','Tên',180),('kind','Loại',90),('username','Tài khoản',150),('port','Cổng',70),('assigned','Đã gán',90),('note','Ghi chú',260),('updated','Cập nhật',150)]:
             self.t.heading(c,text=h); self.t.column(c,width=w,anchor='w')
         self.t.pack(fill='both',expand=True,padx=8,pady=8)
-        tk.Label(self.parent,text='Mật khẩu/community được mã hóa bằng Fernet và không hiển thị lại trên giao diện.',bg='#F3F4F6',fg='#6B7280').pack(anchor='w',padx=25,pady=(0,8))
+        tk.Label(self.parent,text='Mật khẩu/community được mã hóa bằng Fernet và không hiển thị lại trên giao diện.',bg=UI_COLORS['background'],fg=UI_COLORS['muted']).pack(anchor='w',padx=25,pady=(0,8))
 
     def refresh(self):
         for x in self.t.get_children(): self.t.delete(x)
@@ -224,7 +225,7 @@ class CredentialManagerPage:
             if not vals['name'].get().strip(): messagebox.showwarning(title,'Vui lòng nhập tên.',parent=w); return
             if not row and not vals['secret'].get(): messagebox.showwarning(title,'Vui lòng nhập mật khẩu/community.',parent=w); return
             result.update({k:v.get().strip() for k,v in vals.items()}); w.destroy()
-        tk.Button(w,text='Lưu',command=save,bg='#2563EB',fg='white',width=12).grid(row=7,column=1,sticky='e',padx=10,pady=15)
+        tk.Button(w,text='Lưu',command=save,bg=UI_COLORS['primary'],fg=UI_COLORS['text'],width=12).grid(row=7,column=1,sticky='e',padx=10,pady=15)
         w.wait_window(); return result or None
 
     def add(self):
@@ -264,7 +265,7 @@ class CredentialManagerPage:
         tk.Label(w,text='Mục đích').pack(anchor='w',padx=15,pady=(10,3));ttk.Combobox(w,textvariable=purpose,values=['SSH','SNMP','Backup'],state='readonly',width=20).pack(anchor='w',padx=15)
         def save():
             did=devices[labels.index(dv.get())]['id']; c=_connect();c.execute('INSERT INTO device_credentials(device_id,credential_id,purpose,created_at) VALUES(?,?,?,?) ON CONFLICT(device_id,purpose) DO UPDATE SET credential_id=excluded.credential_id,created_at=excluded.created_at',(did,cid,purpose.get(),_now()));c.commit();c.close();w.destroy();self.refresh()
-        tk.Button(w,text='Gán',command=save,bg='#2563EB',fg='white').pack(anchor='e',padx=15,pady=12)
+        tk.Button(w,text='Gán',command=save,bg=UI_COLORS['primary'],fg=UI_COLORS['text']).pack(anchor='e',padx=15,pady=12)
 
     def test(self):
         i=self._selected()
@@ -291,10 +292,10 @@ class SecureBackupSchedulerPage:
     def __init__(self,parent,activity_callback=None):
         ensure_v5_tables();self.parent=parent;self.activity=activity_callback or (lambda m:None);self._build();self.refresh();self.parent.after(5000,self._tick)
     def _build(self):
-        ctl=tk.Frame(self.parent,bg='#F3F4F6');ctl.pack(fill='x',padx=25,pady=(0,8))
-        tk.Button(ctl,text='Thêm lịch sao lưu',command=self.add,bg='#2563EB',fg='white',relief='flat').pack(side='left')
+        ctl=tk.Frame(self.parent,bg=UI_COLORS['background']);ctl.pack(fill='x',padx=25,pady=(0,8))
+        tk.Button(ctl,text='Thêm lịch sao lưu',command=self.add,bg=UI_COLORS['primary'],fg=UI_COLORS['text'],relief='flat').pack(side='left')
         tk.Button(ctl,text='Chạy ngay',command=self.run_now).pack(side='left',padx=5);tk.Button(ctl,text='Bật/Tắt',command=self.toggle).pack(side='left',padx=5);tk.Button(ctl,text='Xóa',command=self.delete).pack(side='left',padx=5);tk.Button(ctl,text='Làm mới',command=self.refresh).pack(side='left',padx=5)
-        box=tk.Frame(self.parent,bg='white',bd=1,relief='solid');box.pack(fill='both',expand=True,padx=25,pady=(0,10));cols=('name','device','credential','interval','last','status','enabled');self.t=ttk.Treeview(box,columns=cols,show='headings')
+        box=tk.Frame(self.parent,bg=UI_COLORS['surface'],bd=1,relief='solid');box.pack(fill='both',expand=True,padx=25,pady=(0,10));cols=('name','device','credential','interval','last','status','enabled');self.t=ttk.Treeview(box,columns=cols,show='headings')
         for c,h,w in [('name','Tên lịch',170),('device','Thiết bị',180),('credential','Credential',160),('interval','Chu kỳ',100),('last','Lần chạy cuối',150),('status','Kết quả',220),('enabled','Bật',60)]:self.t.heading(c,text=h);self.t.column(c,width=w,anchor='w')
         self.t.pack(fill='both',expand=True,padx=8,pady=8)
     def refresh(self):
@@ -322,7 +323,7 @@ class SecureBackupSchedulerPage:
             try:m=max(1,int(mins.get()))
             except:messagebox.showwarning('Lịch sao lưu','Chu kỳ phải là số phút.',parent=w);return
             did=dev[dl.index(dv.get())]['id'];cid=creds[cl.index(cv.get())]['id'];c=_connect();c.execute('INSERT INTO secure_backup_jobs(name,device_id,credential_id,command,interval_min,enabled,next_run,created_at) VALUES(?,?,?,?,?,1,?,?)',(name.get().strip(),did,cid,cmd.get().strip() or 'show running-config',m,time.time(),_now()));c.commit();c.close();w.destroy();self.refresh()
-        tk.Button(w,text='Lưu',command=save,bg='#2563EB',fg='white').grid(row=6,column=1,sticky='e',padx=10,pady=15)
+        tk.Button(w,text='Lưu',command=save,bg=UI_COLORS['primary'],fg=UI_COLORS['text']).grid(row=6,column=1,sticky='e',padx=10,pady=15)
     def run_now(self):
         i=self._selected()
         if i:self._run(i)
@@ -358,8 +359,8 @@ class ConfigComparePage:
     def __init__(self,parent,activity_callback=None):
         self.parent=parent;self.activity=activity_callback or (lambda m:None);self._build();self.refresh()
     def _build(self):
-        ctl=tk.Frame(self.parent,bg='#F3F4F6');ctl.pack(fill='x',padx=25,pady=(0,8));tk.Label(ctl,text='Bản A:',bg='#F3F4F6').pack(side='left');self.a=tk.StringVar();self.ac=ttk.Combobox(ctl,textvariable=self.a,state='readonly',width=38);self.ac.pack(side='left',padx=5);tk.Label(ctl,text='Bản B:',bg='#F3F4F6').pack(side='left');self.b=tk.StringVar();self.bc=ttk.Combobox(ctl,textvariable=self.b,state='readonly',width=38);self.bc.pack(side='left',padx=5);tk.Button(ctl,text='So sánh',command=self.compare,bg='#2563EB',fg='white',relief='flat').pack(side='left',padx=5);tk.Button(ctl,text='Làm mới',command=self.refresh).pack(side='left')
-        box=tk.Frame(self.parent,bg='white',bd=1,relief='solid');box.pack(fill='both',expand=True,padx=25,pady=(0,10));self.text=tk.Text(box,wrap='none',font=('Consolas',10));ys=ttk.Scrollbar(box,orient='vertical',command=self.text.yview);xs=ttk.Scrollbar(box,orient='horizontal',command=self.text.xview);self.text.configure(yscrollcommand=ys.set,xscrollcommand=xs.set);self.text.grid(row=0,column=0,sticky='nsew');ys.grid(row=0,column=1,sticky='ns');xs.grid(row=1,column=0,sticky='ew');box.grid_rowconfigure(0,weight=1);box.grid_columnconfigure(0,weight=1)
+        ctl=tk.Frame(self.parent,bg=UI_COLORS['background']);ctl.pack(fill='x',padx=25,pady=(0,8));tk.Label(ctl,text='Bản A:',bg=UI_COLORS['background']).pack(side='left');self.a=tk.StringVar();self.ac=ttk.Combobox(ctl,textvariable=self.a,state='readonly',width=38);self.ac.pack(side='left',padx=5);tk.Label(ctl,text='Bản B:',bg=UI_COLORS['background']).pack(side='left');self.b=tk.StringVar();self.bc=ttk.Combobox(ctl,textvariable=self.b,state='readonly',width=38);self.bc.pack(side='left',padx=5);tk.Button(ctl,text='So sánh',command=self.compare,bg=UI_COLORS['primary'],fg=UI_COLORS['text'],relief='flat').pack(side='left',padx=5);tk.Button(ctl,text='Làm mới',command=self.refresh).pack(side='left')
+        box=tk.Frame(self.parent,bg=UI_COLORS['surface'],bd=1,relief='solid');box.pack(fill='both',expand=True,padx=25,pady=(0,10));self.text=tk.Text(box,wrap='none',font=('Consolas',10));ys=ttk.Scrollbar(box,orient='vertical',command=self.text.yview);xs=ttk.Scrollbar(box,orient='horizontal',command=self.text.xview);self.text.configure(yscrollcommand=ys.set,xscrollcommand=xs.set);self.text.grid(row=0,column=0,sticky='nsew');ys.grid(row=0,column=1,sticky='ns');xs.grid(row=1,column=0,sticky='ew');box.grid_rowconfigure(0,weight=1);box.grid_columnconfigure(0,weight=1)
     def refresh(self):
         c=_connect();rows=[dict(r) for r in c.execute('SELECT id,device_name,file_path,created_at FROM config_backups WHERE file_path IS NOT NULL ORDER BY id DESC LIMIT 300')];c.close();self.rows=rows;labels=[f"#{r['id']} | {r['device_name']} | {r['created_at']}" for r in rows];self.ac['values']=labels;self.bc['values']=labels
         if labels and not self.a.get():self.a.set(labels[min(1,len(labels)-1)]);self.b.set(labels[0])
@@ -375,68 +376,25 @@ class ConfigComparePage:
 
 
 class UserRolePage:
-    def __init__(self,parent,activity_callback=None):
-        ensure_v5_tables();self.parent=parent;self.activity=activity_callback or (lambda m:None);self._build();self.refresh()
-    def _build(self):
-        ctl=tk.Frame(self.parent,bg='#F3F4F6');ctl.pack(fill='x',padx=25,pady=(0,8));tk.Button(ctl,text='Thêm người dùng',command=self.add,bg='#2563EB',fg='white',relief='flat').pack(side='left');tk.Button(ctl,text='Đổi mật khẩu',command=self.password).pack(side='left',padx=5);tk.Button(ctl,text='Đổi vai trò',command=self.role).pack(side='left',padx=5);tk.Button(ctl,text='Bật/Tắt',command=self.toggle).pack(side='left',padx=5);tk.Button(ctl,text='Xóa',command=self.delete).pack(side='left',padx=5);tk.Button(ctl,text='Làm mới',command=self.refresh).pack(side='left',padx=5)
-        box=tk.Frame(self.parent,bg='white',bd=1,relief='solid');box.pack(fill='both',expand=True,padx=25,pady=(0,10));self.t=ttk.Treeview(box,columns=('user','role','enabled','created','updated'),show='headings');
-        for c,h,w in [('user','Tài khoản',180),('role','Vai trò',120),('enabled','Hoạt động',90),('created','Tạo lúc',160),('updated','Cập nhật',160)]:self.t.heading(c,text=h);self.t.column(c,width=w,anchor='w')
-        self.t.pack(fill='both',expand=True,padx=8,pady=8);tk.Label(self.parent,text='Admin: toàn quyền • Operator: vận hành/giám sát • Viewer: chỉ xem các màn hình giám sát.',bg='#F3F4F6',fg='#6B7280').pack(anchor='w',padx=25,pady=(0,8))
-    def refresh(self):
-        for x in self.t.get_children():self.t.delete(x)
-        c=_connect();rows=c.execute('SELECT * FROM app_users ORDER BY username').fetchall();c.close()
-        for r in rows:self.t.insert('','end',iid=str(r['id']),values=(r['username'],r['role'],'Có' if r['enabled'] else 'Không',r['created_at'],r['updated_at'] or '-'))
-    def _selected(self):s=self.t.selection();return int(s[0]) if s else None
-    def add(self):
-        u=simpledialog.askstring('Người dùng','Tên đăng nhập:',parent=self.parent)
-        if not u:return
-        p=simpledialog.askstring('Người dùng','Mật khẩu:',show='*',parent=self.parent)
-        if not p:return
-        role=simpledialog.askstring('Người dùng','Vai trò: Admin / Operator / Viewer',initialvalue='Viewer',parent=self.parent) or 'Viewer';role=role.title()
-        if role not in ('Admin','Operator','Viewer'):messagebox.showwarning('Người dùng','Vai trò không hợp lệ.');return
-        c=_connect()
-        try:c.execute('INSERT INTO app_users(username,password_hash,role,enabled,created_at,updated_at) VALUES(?,?,?,?,?,?)',(u.strip(),_hash_password(p),role,1,_now(),_now()));c.commit()
-        except sqlite3.IntegrityError:messagebox.showerror('Người dùng','Tài khoản đã tồn tại.')
-        finally:c.close()
-        self.refresh()
-    def password(self):
-        i=self._selected()
-        if not i:return
-        p=simpledialog.askstring('Đổi mật khẩu','Mật khẩu mới:',show='*',parent=self.parent)
-        if not p:return
-        c=_connect();c.execute('UPDATE app_users SET password_hash=?,updated_at=? WHERE id=?',(_hash_password(p),_now(),i));c.commit();c.close();self.refresh()
-    def role(self):
-        i=self._selected()
-        if not i:return
-        role=simpledialog.askstring('Vai trò','Admin / Operator / Viewer:',parent=self.parent)
-        if not role:return
-        role=role.title()
-        if role not in ('Admin','Operator','Viewer'):messagebox.showwarning('Vai trò','Vai trò không hợp lệ.');return
-        c=_connect();c.execute('UPDATE app_users SET role=?,updated_at=? WHERE id=?',(role,_now(),i));c.commit();c.close();self.refresh()
-    def toggle(self):
-        i=self._selected()
-        if not i:return
-        c=_connect();c.execute('UPDATE app_users SET enabled=CASE enabled WHEN 1 THEN 0 ELSE 1 END,updated_at=? WHERE id=?',(_now(),i));c.commit();c.close();self.refresh()
-    def delete(self):
-        i=self._selected()
-        if not i:return
-        c=_connect();c.execute('DELETE FROM app_users WHERE id=?',(i,));c.commit();c.close();self.refresh()
+    def __init__(self, parent, activity_callback=None, session_user=None, on_session_update=None):
+        from modules.account_ui import AccountManagementPage
+        self.page = AccountManagementPage(parent, activity_callback, session_user, on_session_update)
 
 
 class LoginDialog:
-    def __init__(self,root):
-        self.root=root;self.user=None
+    def __init__(self,root,allow_bootstrap=True):
+        self.root=root;self.user=None;self.allow_bootstrap=allow_bootstrap
     def run(self):
-        if not has_local_users():
+        if self.allow_bootstrap and not has_local_users():
             return {'username':'local-admin','role':'Admin','bootstrap':True}
-        w=tk.Toplevel(self.root);w.title('Đăng nhập Network Automation');w.geometry('390x230');w.resizable(False,False);w.grab_set();w.protocol('WM_DELETE_WINDOW',lambda:(setattr(self,'user',None),w.destroy()))
-        tk.Label(w,text='NETWORK AUTOMATION',font=('Segoe UI',16,'bold')).pack(pady=(18,12));frm=tk.Frame(w);frm.pack(fill='x',padx=35);u=tk.StringVar();p=tk.StringVar();tk.Label(frm,text='Tài khoản').grid(row=0,column=0,sticky='w',pady=7);tk.Entry(frm,textvariable=u,width=27).grid(row=0,column=1,pady=7);tk.Label(frm,text='Mật khẩu').grid(row=1,column=0,sticky='w',pady=7);pe=tk.Entry(frm,textvariable=p,show='*',width=27);pe.grid(row=1,column=1,pady=7)
-        msg=tk.StringVar();tk.Label(w,textvariable=msg,fg='#DC2626').pack()
+        w=tk.Toplevel(self.root);w.title('Đăng nhập Network Automation');w.geometry('420x290');w.resizable(False,False);w.grab_set();w.protocol('WM_DELETE_WINDOW',lambda:(setattr(self,'user',None),w.destroy()))
+        tk.Label(w,text='NETWORK AUTOMATION',font=('Segoe UI',16,'bold')).pack(pady=(18,12));tk.Label(w,text='Đăng nhập để tiếp tục phiên làm việc.' if has_local_users() else 'Chưa có tài khoản. Đóng và mở lại ứng dụng để thiết lập Admin.',wraplength=360,fg=UI_COLORS['muted']).pack(pady=(0,8));frm=tk.Frame(w);frm.pack(fill='x',padx=35);u=tk.StringVar();p=tk.StringVar();tk.Label(frm,text='Tài khoản').grid(row=0,column=0,sticky='w',pady=7);tk.Entry(frm,textvariable=u,width=27).grid(row=0,column=1,pady=7);tk.Label(frm,text='Mật khẩu').grid(row=1,column=0,sticky='w',pady=7);pe=tk.Entry(frm,textvariable=p,show='*',width=27);pe.grid(row=1,column=1,pady=7)
+        msg=tk.StringVar();tk.Label(w,textvariable=msg,fg=UI_COLORS['danger']).pack()
         def go(event=None):
             r=authenticate(u.get().strip(),p.get())
             if r:self.user=r;w.destroy()
             else:msg.set('Sai tài khoản hoặc mật khẩu.')
-        tk.Button(w,text='Đăng nhập',command=go,bg='#2563EB',fg='white',width=14).pack(pady=8);pe.bind('<Return>',go);w.wait_window();return self.user
+        tk.Button(w,text='Đăng nhập',command=go,bg=UI_COLORS['primary'],fg=UI_COLORS['text'],width=14).pack(pady=8);pe.bind('<Return>',go);w.wait_window();return self.user
 
 
 __all__=['ensure_v5_tables','CredentialManagerPage','SecureBackupSchedulerPage','ConfigComparePage','UserRolePage','LoginDialog','has_local_users']

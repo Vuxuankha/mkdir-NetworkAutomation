@@ -1,3 +1,4 @@
+from modules.ui_theme import PALETTE as UI_COLORS
 import os, re, sqlite3, subprocess, threading, time
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -109,13 +110,13 @@ class MonitoringServicePage:
         ensure_v6_tables(); self.parent=parent; self.service=service; self.user=session_user
         s=service.settings(); self.enabled=tk.BooleanVar(value=bool(s['enabled'])); self.interval=tk.IntVar(value=s['interval_sec'] or 60); self.retention=tk.IntVar(value=s['retention_days'] or 90); self.status=tk.StringVar(); self._build(); self.refresh()
     def _build(self):
-        f=tk.LabelFrame(self.parent,text='Dịch vụ giám sát nền',bg='#F3F4F6'); f.pack(fill='x',padx=25,pady=(0,10))
-        tk.Checkbutton(f,text='Bật giám sát nền',variable=self.enabled,bg='#F3F4F6').grid(row=0,column=0,padx=10,pady=10,sticky='w')
-        tk.Label(f,text='Chu kỳ (giây)',bg='#F3F4F6').grid(row=0,column=1); tk.Spinbox(f,from_=15,to=3600,textvariable=self.interval,width=8).grid(row=0,column=2,padx=5)
-        tk.Label(f,text='Giữ lịch sử (ngày)',bg='#F3F4F6').grid(row=0,column=3); tk.Spinbox(f,from_=1,to=3650,textvariable=self.retention,width=8).grid(row=0,column=4,padx=5)
-        tk.Button(f,text='Lưu cấu hình',command=self.save,bg='#2563EB',fg='white',relief='flat').grid(row=0,column=5,padx=8)
+        f=tk.LabelFrame(self.parent,text='Dịch vụ giám sát nền',bg=UI_COLORS['background']); f.pack(fill='x',padx=25,pady=(0,10))
+        tk.Checkbutton(f,text='Bật giám sát nền',variable=self.enabled,bg=UI_COLORS['background']).grid(row=0,column=0,padx=10,pady=10,sticky='w')
+        tk.Label(f,text='Chu kỳ (giây)',bg=UI_COLORS['background']).grid(row=0,column=1); tk.Spinbox(f,from_=15,to=3600,textvariable=self.interval,width=8).grid(row=0,column=2,padx=5)
+        tk.Label(f,text='Giữ lịch sử (ngày)',bg=UI_COLORS['background']).grid(row=0,column=3); tk.Spinbox(f,from_=1,to=3650,textvariable=self.retention,width=8).grid(row=0,column=4,padx=5)
+        tk.Button(f,text='Lưu cấu hình',command=self.save,bg=UI_COLORS['primary'],fg=UI_COLORS['text'],relief='flat').grid(row=0,column=5,padx=8)
         tk.Button(f,text='Chạy một lần',command=self.run_once,relief='flat').grid(row=0,column=6,padx=4)
-        tk.Label(self.parent,textvariable=self.status,bg='#F3F4F6',justify='left',anchor='w').pack(fill='x',padx=25,pady=8)
+        tk.Label(self.parent,textvariable=self.status,bg=UI_COLORS['background'],justify='left',anchor='w').pack(fill='x',padx=25,pady=8)
     def refresh(self):
         s=self.service.settings(); alive=bool(self.service.thread and self.service.thread.is_alive()); self.status.set(f"Trạng thái worker: {'ĐANG CHẠY' if alive else 'DỪNG'}\nLần chạy gần nhất: {s['last_run'] or '-'}\nKết quả: {s['last_status'] or '-'}")
         self.parent.after(3000,self.refresh)
@@ -133,15 +134,20 @@ class MonitoringServicePage:
 
 
 class AuditLogPage:
-    def __init__(self,parent): ensure_v6_tables(); self.parent=parent; self.q=tk.StringVar(); self._build(); self.refresh()
+    def __init__(self,parent,session_user=None): ensure_v6_tables(); self.parent=parent; self.session=session_user or {}; self.q=tk.StringVar(); self._build(); self.refresh()
     def _build(self):
-        f=tk.Frame(self.parent,bg='#F3F4F6'); f.pack(fill='x',padx=25,pady=(0,8)); tk.Entry(f,textvariable=self.q,width=35).pack(side='left'); tk.Button(f,text='Tìm',command=self.refresh).pack(side='left',padx=5); tk.Button(f,text='Làm mới',command=self.refresh).pack(side='left')
-        b=tk.Frame(self.parent,bg='white'); b.pack(fill='both',expand=True,padx=25,pady=(0,10)); cols=('time','user','role','action','target','detail'); self.t=ttk.Treeview(b,columns=cols,show='headings')
+        f=tk.Frame(self.parent,bg=UI_COLORS['background']); f.pack(fill='x',padx=25,pady=(0,8)); tk.Entry(f,textvariable=self.q,width=35).pack(side='left'); tk.Button(f,text='Tìm',command=self.refresh).pack(side='left',padx=5); tk.Button(f,text='Làm mới',command=self.refresh).pack(side='left')
+        b=tk.Frame(self.parent,bg=UI_COLORS['surface']); b.pack(fill='both',expand=True,padx=25,pady=(0,10)); cols=('time','user','role','action','target','detail'); self.t=ttk.Treeview(b,columns=cols,show='headings')
         for c,h,w in [('time','Thời gian',150),('user','Người dùng',120),('role','Quyền',80),('action','Hành động',180),('target','Đối tượng',160),('detail','Chi tiết',420)]:self.t.heading(c,text=h);self.t.column(c,width=w,anchor='w')
-        self.t.pack(fill='both',expand=True)
+        b.columnconfigure(0,weight=1); b.rowconfigure(0,weight=1); self.t.grid(row=0,column=0,sticky='nsew')
+        ys=ttk.Scrollbar(b,orient='vertical',command=self.t.yview); ys.grid(row=0,column=1,sticky='ns')
+        xs=ttk.Scrollbar(b,orient='horizontal',command=self.t.xview); xs.grid(row=1,column=0,sticky='ew'); self.t.configure(yscrollcommand=ys.set,xscrollcommand=xs.set)
     def refresh(self):
         for x in self.t.get_children():self.t.delete(x)
-        c=_connect(); q='%'+self.q.get().strip()+'%'; rows=c.execute('SELECT * FROM audit_log WHERE username LIKE ? OR action LIKE ? OR target LIKE ? OR detail LIKE ? ORDER BY id DESC LIMIT 1000',(q,q,q,q)).fetchall(); c.close()
+        from modules.accounts import activity_rows
+        try: rows=activity_rows(self.session,self.q.get())
+        except ValueError as exc:
+            messagebox.showwarning('Nhật ký hoạt động',str(exc),parent=self.parent); return
         for r in rows:self.t.insert('','end',values=(r['created_at'],r['username'],r['role'],r['action'],r['target'],r['detail']))
 
 
@@ -149,10 +155,10 @@ class RestoreConfigPage:
     """Khôi phục có kiểm soát: xem backup, tạo safety backup, rồi gửi config qua SSH shell."""
     def __init__(self,parent,session_user): self.parent=parent; self.user=session_user; ensure_v6_tables(); self._build(); self.refresh()
     def _build(self):
-        b=tk.Frame(self.parent,bg='white');b.pack(fill='both',expand=True,padx=25,pady=(0,10)); cols=('id','device','source','file','time');self.t=ttk.Treeview(b,columns=cols,show='headings',height=12)
+        b=tk.Frame(self.parent,bg=UI_COLORS['surface']);b.pack(fill='both',expand=True,padx=25,pady=(0,10)); cols=('id','device','source','file','time');self.t=ttk.Treeview(b,columns=cols,show='headings',height=12)
         for c,h,w in [('id','ID',50),('device','Thiết bị',170),('source','Nguồn',120),('file','File',500),('time','Thời gian',150)]:self.t.heading(c,text=h);self.t.column(c,width=w,anchor='w')
-        self.t.pack(fill='both',expand=True); f=tk.Frame(self.parent,bg='#F3F4F6');f.pack(fill='x',padx=25,pady=(0,10));tk.Button(f,text='Xem nội dung',command=self.preview).pack(side='left');tk.Button(f,text='Khôi phục qua SSH',command=self.restore,bg='#B91C1C',fg='white',relief='flat').pack(side='left',padx=8)
-        tk.Label(f,text='Chỉ Admin. Hệ thống sẽ sao lưu cấu hình hiện tại trước khi gửi bản khôi phục.',bg='#F3F4F6').pack(side='left',padx=8)
+        self.t.pack(fill='both',expand=True); f=tk.Frame(self.parent,bg=UI_COLORS['background']);f.pack(fill='x',padx=25,pady=(0,10));tk.Button(f,text='Xem nội dung',command=self.preview).pack(side='left');tk.Button(f,text='Khôi phục qua SSH',command=self.restore,bg=UI_COLORS['danger_bg'],fg=UI_COLORS['text'],relief='flat').pack(side='left',padx=8)
+        tk.Label(f,text='Chỉ Admin. Hệ thống sẽ sao lưu cấu hình hiện tại trước khi gửi bản khôi phục.',bg=UI_COLORS['background']).pack(side='left',padx=8)
     def refresh(self):
         for x in self.t.get_children():self.t.delete(x)
         c=_connect();rows=c.execute('SELECT * FROM config_backups ORDER BY id DESC LIMIT 500').fetchall();c.close()

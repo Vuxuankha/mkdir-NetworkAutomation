@@ -1,0 +1,9 @@
+{
+  "version": "1.1.0",
+  "created_at": "2026-10-01T20:20:52.959485",
+  "database": "network_automation.db",
+  "files": [
+    ".credential.key",
+    "network_automation.db"
+  ]
+}

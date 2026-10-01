@@ -1,3 +1,4 @@
+from modules.ui_theme import PALETTE as UI_COLORS
 import sqlite3
 import threading
 import tkinter as tk
@@ -146,14 +147,14 @@ class DeviceProfilesPage:
     def __init__(self,parent,activity_callback=None):
         ensure_v7_tables(); self.parent=parent; self.activity=activity_callback or (lambda m:None); self.status=tk.StringVar(value='Sẵn sàng'); self.community=tk.StringVar(value='public'); self._build(); self.refresh()
     def _build(self):
-        ctl=tk.Frame(self.parent,bg='#F3F4F6');ctl.pack(fill='x',padx=25,pady=(0,8))
-        tk.Button(ctl,text='Gán hồ sơ',command=self.assign,bg='#2563EB',fg='white',relief='flat').pack(side='left')
+        ctl=tk.Frame(self.parent,bg=UI_COLORS['background']);ctl.pack(fill='x',padx=25,pady=(0,8))
+        tk.Button(ctl,text='Gán hồ sơ',command=self.assign,bg=UI_COLORS['primary'],fg=UI_COLORS['text'],relief='flat').pack(side='left')
         tk.Button(ctl,text='Thêm hồ sơ tùy chỉnh',command=self.add_custom).pack(side='left',padx=5)
-        tk.Button(ctl,text='Tự nhận diện SNMP',command=self.auto_detect,bg='#0F766E',fg='white',relief='flat').pack(side='left',padx=5)
-        tk.Label(ctl,text='Community:',bg='#F3F4F6').pack(side='left',padx=(12,3));tk.Entry(ctl,textvariable=self.community,width=14).pack(side='left')
-        tk.Button(ctl,text='Làm mới',command=self.refresh).pack(side='left',padx=5);tk.Label(ctl,textvariable=self.status,bg='#F3F4F6',fg='#6B7280').pack(side='left',padx=10)
+        tk.Button(ctl,text='Tự nhận diện SNMP',command=self.auto_detect,bg=UI_COLORS['primary'],fg=UI_COLORS['text'],relief='flat').pack(side='left',padx=5)
+        tk.Label(ctl,text='Community:',bg=UI_COLORS['background']).pack(side='left',padx=(12,3));tk.Entry(ctl,textvariable=self.community,width=14).pack(side='left')
+        tk.Button(ctl,text='Làm mới',command=self.refresh).pack(side='left',padx=5);tk.Label(ctl,textvariable=self.status,bg=UI_COLORS['background'],fg=UI_COLORS['muted']).pack(side='left',padx=10)
         pan=ttk.Panedwindow(self.parent,orient='horizontal');pan.pack(fill='both',expand=True,padx=25,pady=(0,10))
-        l=tk.Frame(pan,bg='white');r=tk.Frame(pan,bg='white');pan.add(l,weight=3);pan.add(r,weight=2)
+        l=tk.Frame(pan,bg=UI_COLORS['surface']);r=tk.Frame(pan,bg=UI_COLORS['surface']);pan.add(l,weight=3);pan.add(r,weight=2)
         cols=('name','ip','vendor','profile','source');self.t=ttk.Treeview(l,columns=cols,show='headings')
         for c,h,w in [('name','Thiết bị',180),('ip','IP',130),('vendor','Vendor',110),('profile','Hồ sơ',210),('source','Nguồn',90)]: self.t.heading(c,text=h);self.t.column(c,width=w,anchor='w')
         self.t.pack(fill='both',expand=True,padx=8,pady=8);self.t.bind('<<TreeviewSelect>>',lambda e:self.show_profile())
@@ -184,7 +185,7 @@ class DeviceProfilesPage:
                           (vars['name'].get().strip(),vars['vendor'].get().strip(),vars['match'].get().strip(),vars['cpu'].get().strip(),vars['used'].get().strip(),vars['total'].get().strip(),vars['backup'].get().strip(),vars['lldp'].get().strip(),vars['note'].get().strip(),_now(),_now()));c.commit()
             except sqlite3.IntegrityError:messagebox.showerror('Hồ sơ','Tên hồ sơ đã tồn tại.',parent=w);c.close();return
             c.close();self.activity('Đã thêm hồ sơ thiết bị tùy chỉnh: '+vars['name'].get().strip());w.destroy();self.refresh()
-        tk.Button(w,text='Lưu hồ sơ',command=save,bg='#2563EB',fg='white').grid(row=len(fields),column=1,sticky='e',padx=12,pady=15)
+        tk.Button(w,text='Lưu hồ sơ',command=save,bg=UI_COLORS['primary'],fg=UI_COLORS['text']).grid(row=len(fields),column=1,sticky='e',padx=12,pady=15)
 
     def assign(self):
         did=self._device_id()
@@ -195,7 +196,7 @@ class DeviceProfilesPage:
         def save():
             if v.get() not in labels:return
             p=profiles[labels.index(v.get())];assign_profile(did,p['id'],'manual');self.activity('Đã gán hồ sơ thiết bị: '+p['name']);w.destroy();self.refresh();self.show_profile()
-        tk.Button(w,text='Gán',command=save,bg='#2563EB',fg='white').pack(pady=18)
+        tk.Button(w,text='Gán',command=save,bg=UI_COLORS['primary'],fg=UI_COLORS['text']).pack(pady=18)
     def auto_detect(self):
         did=self._device_id()
         if not did:messagebox.showinfo('Tự nhận diện','Chọn một thiết bị.');return

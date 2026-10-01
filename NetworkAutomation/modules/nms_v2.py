@@ -1,3 +1,4 @@
+from modules.ui_theme import PALETTE as UI_COLORS
 import os, re, socket, sqlite3, subprocess, threading, time
 from datetime import datetime
 from pathlib import Path
@@ -19,15 +20,15 @@ class NOCDashboardPage:
     def __init__(self,parent,activity_callback=None):
         ensure_advanced_tables();self.parent=parent;self.activity_callback=activity_callback or (lambda m:None);self._build();self.refresh()
     def _build(self):
-        top=tk.Frame(self.parent,bg='#F3F4F6');top.pack(fill='x',padx=25,pady=(0,10))
-        tk.Button(top,text='Làm mới NOC',command=self.refresh,bg='#2563EB',fg='white',relief='flat').pack(side='left')
-        self.cards=tk.Frame(self.parent,bg='#F3F4F6');self.cards.pack(fill='x',padx=25)
+        top=tk.Frame(self.parent,bg=UI_COLORS['background']);top.pack(fill='x',padx=25,pady=(0,10))
+        tk.Button(top,text='Làm mới NOC',command=self.refresh,bg=UI_COLORS['primary'],fg=UI_COLORS['text'],relief='flat').pack(side='left')
+        self.cards=tk.Frame(self.parent,bg=UI_COLORS['background']);self.cards.pack(fill='x',padx=25)
         self.vars=[]
         for title in ('Đang quản lý','Online','Offline','Cảnh báo đang mở','Hồ sơ SNMP'):
-            box=tk.Frame(self.cards,bg='white',bd=1,relief='solid');box.pack(side='left',fill='x',expand=True,padx=4,pady=4)
-            v=tk.StringVar(value='0');self.vars.append(v);tk.Label(box,text=title,bg='white',fg='#6B7280').pack(pady=(12,2));tk.Label(box,textvariable=v,bg='white',font=('Segoe UI',22,'bold')).pack(pady=(0,12))
-        body=tk.Frame(self.parent,bg='white',bd=1,relief='solid');body.pack(fill='both',expand=True,padx=25,pady=10)
-        tk.Label(body,text='Cảnh báo nghiêm trọng / cảnh báo gần đây',bg='white',font=('Segoe UI',12,'bold')).pack(anchor='w',padx=12,pady=10)
+            box=tk.Frame(self.cards,bg=UI_COLORS['surface'],bd=1,relief='solid');box.pack(side='left',fill='x',expand=True,padx=4,pady=4)
+            v=tk.StringVar(value='0');self.vars.append(v);tk.Label(box,text=title,bg=UI_COLORS['surface'],fg=UI_COLORS['muted']).pack(pady=(12,2));tk.Label(box,textvariable=v,bg=UI_COLORS['surface'],font=('Segoe UI',22,'bold')).pack(pady=(0,12))
+        body=tk.Frame(self.parent,bg=UI_COLORS['surface'],bd=1,relief='solid');body.pack(fill='both',expand=True,padx=25,pady=10)
+        tk.Label(body,text='Cảnh báo nghiêm trọng / cảnh báo gần đây',bg=UI_COLORS['surface'],font=('Segoe UI',12,'bold')).pack(anchor='w',padx=12,pady=10)
         self.table=ttk.Treeview(body,columns=('time','severity','ip','type','message'),show='headings')
         for c,w in zip(('time','severity','ip','type','message'),(150,90,130,150,520)):self.table.heading(c,text=c.title());self.table.column(c,width=w,anchor='w')
         self.table.pack(fill='both',expand=True,padx=10,pady=(0,10))
@@ -49,10 +50,10 @@ class AutoDiscoveryPage:
     def __init__(self,parent,activity_callback=None):
         self.parent=parent;self.activity_callback=activity_callback or (lambda m:None);self.subnet=tk.StringVar(value='192.168.1.0/24');self.status=tk.StringVar(value='Sẵn sàng');self._build()
     def _build(self):
-        ctl=tk.Frame(self.parent,bg='white',bd=1,relief='solid');ctl.pack(fill='x',padx=25,pady=(0,10))
-        tk.Label(ctl,text='Mạng con',bg='white').pack(side='left',padx=(12,5),pady=12);tk.Entry(ctl,textvariable=self.subnet,width=22).pack(side='left')
-        tk.Button(ctl,text='Phát hiện',command=self.discover,bg='#2563EB',fg='white',relief='flat').pack(side='left',padx=8);tk.Label(ctl,textvariable=self.status,bg='white').pack(side='left',padx=10)
-        box=tk.Frame(self.parent,bg='white',bd=1,relief='solid');box.pack(fill='both',expand=True,padx=25,pady=(0,10))
+        ctl=tk.Frame(self.parent,bg=UI_COLORS['surface'],bd=1,relief='solid');ctl.pack(fill='x',padx=25,pady=(0,10))
+        tk.Label(ctl,text='Mạng con',bg=UI_COLORS['surface']).pack(side='left',padx=(12,5),pady=12);tk.Entry(ctl,textvariable=self.subnet,width=22).pack(side='left')
+        tk.Button(ctl,text='Phát hiện',command=self.discover,bg=UI_COLORS['primary'],fg=UI_COLORS['text'],relief='flat').pack(side='left',padx=8);tk.Label(ctl,textvariable=self.status,bg=UI_COLORS['surface']).pack(side='left',padx=10)
+        box=tk.Frame(self.parent,bg=UI_COLORS['surface'],bd=1,relief='solid');box.pack(fill='both',expand=True,padx=25,pady=(0,10))
         self.table=ttk.Treeview(box,columns=('ip','hostname','status','source'),show='headings');
         for c,w in zip(('ip','hostname','status','source'),(160,280,120,250)):self.table.heading(c,text=c.title());self.table.column(c,width=w,anchor='w')
         self.table.pack(fill='both',expand=True,padx=10,pady=10)
@@ -94,10 +95,10 @@ class MultiPortMonitorPage:
     def __init__(self,parent,activity_callback=None):
         self.parent=parent;self.activity_callback=activity_callback or (lambda m:None);self.host=tk.StringVar();self.community=tk.StringVar(value='public');self.indices=tk.StringVar(value='1,2,3,4');self.status=tk.StringVar(value='Sẵn sàng');self._build()
     def _build(self):
-        ctl=tk.Frame(self.parent,bg='white',bd=1,relief='solid');ctl.pack(fill='x',padx=25,pady=(0,10))
-        for lab,var,w in [('Máy chủ/IP',self.host,18),('Community',self.community,14),('Danh sách IfIndex',self.indices,25)]:tk.Label(ctl,text=lab,bg='white').pack(side='left',padx=(10,3),pady=12);tk.Entry(ctl,textvariable=var,width=w).pack(side='left')
-        tk.Button(ctl,text='Kiểm tra cổng',command=self.poll,bg='#2563EB',fg='white',relief='flat').pack(side='left',padx=10);tk.Label(ctl,textvariable=self.status,bg='white').pack(side='left')
-        box=tk.Frame(self.parent,bg='white',bd=1,relief='solid');box.pack(fill='both',expand=True,padx=25,pady=(0,10))
+        ctl=tk.Frame(self.parent,bg=UI_COLORS['surface'],bd=1,relief='solid');ctl.pack(fill='x',padx=25,pady=(0,10))
+        for lab,var,w in [('Máy chủ/IP',self.host,18),('Community',self.community,14),('Danh sách IfIndex',self.indices,25)]:tk.Label(ctl,text=lab,bg=UI_COLORS['surface']).pack(side='left',padx=(10,3),pady=12);tk.Entry(ctl,textvariable=var,width=w).pack(side='left')
+        tk.Button(ctl,text='Kiểm tra cổng',command=self.poll,bg=UI_COLORS['primary'],fg=UI_COLORS['text'],relief='flat').pack(side='left',padx=10);tk.Label(ctl,textvariable=self.status,bg=UI_COLORS['surface']).pack(side='left')
+        box=tk.Frame(self.parent,bg=UI_COLORS['surface'],bd=1,relief='solid');box.pack(fill='both',expand=True,padx=25,pady=(0,10))
         self.table=ttk.Treeview(box,columns=('ifindex','status','in_octets','out_octets'),show='headings');
         for c,w in zip(('ifindex','status','in_octets','out_octets'),(120,140,220,220)):self.table.heading(c,text=c.replace('_',' ').title());self.table.column(c,width=w,anchor='w')
         self.table.pack(fill='both',expand=True,padx=10,pady=10)
@@ -127,8 +128,8 @@ class BackupSchedulerPage:
     def _ensure(self):
         c=_connect();c.execute('''CREATE TABLE IF NOT EXISTS ssh_backup_jobs(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT,host TEXT,port INTEGER DEFAULT 22,username TEXT,password TEXT,command TEXT,interval_min INTEGER DEFAULT 1440,last_run TEXT,next_run REAL,enabled INTEGER DEFAULT 1)''');c.commit();c.close()
     def _build(self):
-        ctl=tk.Frame(self.parent,bg='#F3F4F6');ctl.pack(fill='x',padx=25,pady=(0,8));tk.Button(ctl,text='Thêm lịch sao lưu SSH',command=self.add,bg='#2563EB',fg='white',relief='flat').pack(side='left');tk.Button(ctl,text='Chạy ngay',command=self.run_now).pack(side='left',padx=5);tk.Button(ctl,text='Đặt mật khẩu',command=self.set_password).pack(side='left',padx=5);tk.Button(ctl,text='Xóa',command=self.delete).pack(side='left',padx=5);tk.Button(ctl,text='Làm mới',command=self.refresh).pack(side='left',padx=5)
-        box=tk.Frame(self.parent,bg='white',bd=1,relief='solid');box.pack(fill='both',expand=True,padx=25,pady=(0,10));self.table=ttk.Treeview(box,columns=('name','host','user','interval','last','enabled'),show='headings')
+        ctl=tk.Frame(self.parent,bg=UI_COLORS['background']);ctl.pack(fill='x',padx=25,pady=(0,8));tk.Button(ctl,text='Thêm lịch sao lưu SSH',command=self.add,bg=UI_COLORS['primary'],fg=UI_COLORS['text'],relief='flat').pack(side='left');tk.Button(ctl,text='Chạy ngay',command=self.run_now).pack(side='left',padx=5);tk.Button(ctl,text='Đặt mật khẩu',command=self.set_password).pack(side='left',padx=5);tk.Button(ctl,text='Xóa',command=self.delete).pack(side='left',padx=5);tk.Button(ctl,text='Làm mới',command=self.refresh).pack(side='left',padx=5)
+        box=tk.Frame(self.parent,bg=UI_COLORS['surface'],bd=1,relief='solid');box.pack(fill='both',expand=True,padx=25,pady=(0,10));self.table=ttk.Treeview(box,columns=('name','host','user','interval','last','enabled'),show='headings')
         for c,w in zip(('name','host','user','interval','last','enabled'),(180,150,150,120,180,90)):self.table.heading(c,text=c.title());self.table.column(c,width=w,anchor='w')
         self.table.pack(fill='both',expand=True,padx=10,pady=10)
     def add(self):
@@ -186,12 +187,12 @@ class NetworkHealthPage:
         self.host=tk.StringVar(); self.community=tk.StringVar(value='public'); self.status=tk.StringVar(value='Sẵn sàng')
         self._build()
     def _build(self):
-        ctl=tk.Frame(self.parent,bg='white',bd=1,relief='solid'); ctl.pack(fill='x',padx=25,pady=(0,10))
-        tk.Label(ctl,text='IP / Tên máy',bg='white').pack(side='left',padx=(12,4),pady=12); tk.Entry(ctl,textvariable=self.host,width=22).pack(side='left')
-        tk.Label(ctl,text='SNMP Community',bg='white').pack(side='left',padx=(12,4)); tk.Entry(ctl,textvariable=self.community,width=15).pack(side='left')
-        tk.Button(ctl,text='Kiểm tra sức khỏe',command=self.check,bg='#2563EB',fg='white',relief='flat').pack(side='left',padx=10)
-        tk.Label(ctl,textvariable=self.status,bg='white').pack(side='left',padx=8)
-        box=tk.Frame(self.parent,bg='white',bd=1,relief='solid'); box.pack(fill='both',expand=True,padx=25,pady=(0,10))
+        ctl=tk.Frame(self.parent,bg=UI_COLORS['surface'],bd=1,relief='solid'); ctl.pack(fill='x',padx=25,pady=(0,10))
+        tk.Label(ctl,text='IP / Tên máy',bg=UI_COLORS['surface']).pack(side='left',padx=(12,4),pady=12); tk.Entry(ctl,textvariable=self.host,width=22).pack(side='left')
+        tk.Label(ctl,text='SNMP Community',bg=UI_COLORS['surface']).pack(side='left',padx=(12,4)); tk.Entry(ctl,textvariable=self.community,width=15).pack(side='left')
+        tk.Button(ctl,text='Kiểm tra sức khỏe',command=self.check,bg=UI_COLORS['primary'],fg=UI_COLORS['text'],relief='flat').pack(side='left',padx=10)
+        tk.Label(ctl,textvariable=self.status,bg=UI_COLORS['surface']).pack(side='left',padx=8)
+        box=tk.Frame(self.parent,bg=UI_COLORS['surface'],bd=1,relief='solid'); box.pack(fill='both',expand=True,padx=25,pady=(0,10))
         self.table=ttk.Treeview(box,columns=('metric','value','note'),show='headings')
         for c,t,w in [('metric','Chỉ số',240),('value','Giá trị',220),('note','Ghi chú',520)]: self.table.heading(c,text=t); self.table.column(c,width=w,anchor='w')
         self.table.pack(fill='both',expand=True,padx=10,pady=10)

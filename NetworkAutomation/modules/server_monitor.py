@@ -1,3 +1,4 @@
+from modules.ui_theme import PALETTE as UI_COLORS
 import json, platform, socket, subprocess, threading, time, urllib.request
 from datetime import datetime
 import tkinter as tk
@@ -88,8 +89,8 @@ class ServerMonitorPage:
         self.parent=parent; self.activity=activity_callback or (lambda x:None); ensure_server_monitor_tables(); self.build()
     def build(self):
         for w in self.parent.winfo_children(): w.destroy()
-        top=tk.Frame(self.parent,bg='white');top.pack(fill='x',padx=12,pady=10)
-        tk.Label(top,text='Application / Server Monitor',bg='white',fg='#111827',font=('Segoe UI',15,'bold')).pack(side='left')
+        top=tk.Frame(self.parent,bg=UI_COLORS['surface']);top.pack(fill='x',padx=12,pady=10)
+        tk.Label(top,text='Application / Server Monitor',bg=UI_COLORS['surface'],fg=UI_COLORS['text'],font=('Segoe UI',15,'bold')).pack(side='left')
         ttk.Button(top,text='Chạy kiểm tra',command=self.run_checks).pack(side='right',padx=4)
         ttk.Button(top,text='Thêm target',command=self.add_target).pack(side='right',padx=4)
         cols=('name','host','app','port','status','latency','cpu','ram','disk','service','checked')

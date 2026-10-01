@@ -1,3 +1,6 @@
+from modules.ui_theme import PALETTE as UI_COLORS
+import queue
+import re
 import os
 import socket
 import sqlite3
@@ -264,7 +267,7 @@ class BaseAdvancedPage:
             pass
 
     def card(self):
-        f = tk.Frame(self.parent, bg='white', bd=1, relief='solid')
+        f = tk.Frame(self.parent, bg=UI_COLORS['surface'], bd=1, relief='solid')
         f.pack(fill='both', expand=True, padx=25, pady=(0, 15))
         return f
 
@@ -290,32 +293,32 @@ class SNMPMonitorPage(BaseAdvancedPage):
         self._load_profiles()
 
     def _build(self):
-        ctl = tk.Frame(self.parent, bg='white', bd=1, relief='solid')
+        ctl = tk.Frame(self.parent, bg=UI_COLORS['surface'], bd=1, relief='solid')
         ctl.pack(fill='x', padx=25, pady=(0, 10))
         fields = [('Host / IP', self.host, 18), ('Community', self.community, 14), ('Port', self.port, 6), ('IfIndex', self.ifindex, 7), ('Interval(s)', self.interval, 8)]
         for i, (lab, var, width) in enumerate(fields):
-            tk.Label(ctl, text=lab, bg='white').grid(row=0, column=i*2, padx=(10, 3), pady=12)
+            tk.Label(ctl, text=lab, bg=UI_COLORS['surface']).grid(row=0, column=i*2, padx=(10, 3), pady=12)
             tk.Entry(ctl, textvariable=var, width=width).grid(row=0, column=i*2+1, pady=12)
-        tk.Button(ctl, text='Kiểm tra một lần', command=self.poll_once, bg='#2563EB', fg='white', relief='flat', padx=10).grid(row=1, column=1, pady=(0, 12))
+        tk.Button(ctl, text='Kiểm tra một lần', command=self.poll_once, bg=UI_COLORS['primary'], fg=UI_COLORS['text'], relief='flat', padx=10).grid(row=1, column=1, pady=(0, 12))
         self.start_btn = tk.Button(ctl, text='Bắt đầu giám sát', command=self.toggle_monitor, padx=10)
         self.start_btn.grid(row=1, column=3, pady=(0, 12))
         tk.Button(ctl, text='Lưu hồ sơ', command=self.save_profile).grid(row=1, column=5, pady=(0, 12))
-        tk.Label(ctl, textvariable=self.status, bg='white', fg='#6B7280').grid(row=1, column=7, columnspan=3, sticky='w')
+        tk.Label(ctl, textvariable=self.status, bg=UI_COLORS['surface'], fg=UI_COLORS['muted']).grid(row=1, column=7, columnspan=3, sticky='w')
 
         body = self.card()
-        left = tk.Frame(body, bg='white', width=300); left.pack(side='left', fill='y', padx=10, pady=10); left.pack_propagate(False)
-        tk.Label(left, text='Hồ sơ SNMP đã lưu', bg='white', font=('Segoe UI', 11, 'bold')).pack(anchor='w', pady=(0, 6))
+        left = tk.Frame(body, bg=UI_COLORS['surface'], width=300); left.pack(side='left', fill='y', padx=10, pady=10); left.pack_propagate(False)
+        tk.Label(left, text='Hồ sơ SNMP đã lưu', bg=UI_COLORS['surface'], font=('Segoe UI', 11, 'bold')).pack(anchor='w', pady=(0, 6))
         self.profile_list = tk.Listbox(left, height=22)
         self.profile_list.pack(fill='both', expand=True)
         self.profile_list.bind('<<ListboxSelect>>', self._select_profile)
         tk.Button(left, text='Xóa hồ sơ', command=self.delete_profile).pack(fill='x', pady=(6, 0))
 
-        right = tk.Frame(body, bg='white'); right.pack(side='left', fill='both', expand=True, padx=(0, 10), pady=10)
+        right = tk.Frame(body, bg=UI_COLORS['surface']); right.pack(side='left', fill='both', expand=True, padx=(0, 10), pady=10)
         self.metric = tk.StringVar(value='No SNMP data yet.')
-        tk.Label(right, textvariable=self.metric, bg='white', justify='left', anchor='w', font=('Consolas', 10)).pack(fill='x', pady=(0, 8))
-        self.canvas = tk.Canvas(right, bg='#F9FAFB', highlightthickness=1, highlightbackground='#E5E7EB', height=330)
+        tk.Label(right, textvariable=self.metric, bg=UI_COLORS['surface'], justify='left', anchor='w', font=('Consolas', 10)).pack(fill='x', pady=(0, 8))
+        self.canvas = tk.Canvas(right, bg=UI_COLORS['background'], highlightthickness=1, highlightbackground=UI_COLORS['surface_alt'], height=330)
         self.canvas.pack(fill='both', expand=True)
-        tk.Label(right, text='Traffic graph: IN and OUT bits/sec. SNMP v2c only; community is stored locally with the profile.', bg='white', fg='#6B7280').pack(anchor='w', pady=(8, 0))
+        tk.Label(right, text='Traffic graph: IN and OUT bits/sec. SNMP v2c only; community is stored locally with the profile.', bg=UI_COLORS['surface'], fg=UI_COLORS['muted']).pack(anchor='w', pady=(8, 0))
 
     def _oids(self):
         idx = int(self.ifindex.get())
@@ -396,21 +399,21 @@ class SNMPMonitorPage(BaseAdvancedPage):
     def _draw_graph(self):
         c = self.canvas; c.delete('all'); w = max(500, c.winfo_width()); h = max(260, c.winfo_height())
         pad = 45
-        c.create_line(pad, 15, pad, h-pad, fill='#9CA3AF'); c.create_line(pad, h-pad, w-15, h-pad, fill='#9CA3AF')
+        c.create_line(pad, 15, pad, h-pad, fill=UI_COLORS['muted']); c.create_line(pad, h-pad, w-15, h-pad, fill=UI_COLORS['muted'])
         if len(self.samples) < 2:
-            c.create_text(w/2, h/2, text='Need at least 2 samples to calculate traffic rate.', fill='#6B7280'); return
+            c.create_text(w/2, h/2, text='Need at least 2 samples to calculate traffic rate.', fill=UI_COLORS['muted']); return
         vals = [(s['in_bps'], s['out_bps']) for s in self.samples]
         mx = max(1.0, max(max(x) for x in vals))
-        c.create_text(6, 18, text=f'{mx/1_000_000:.2f}M', anchor='w', fill='#6B7280')
-        c.create_text(6, h-pad, text='0', anchor='w', fill='#6B7280')
+        c.create_text(6, 18, text=f'{mx/1_000_000:.2f}M', anchor='w', fill=UI_COLORS['muted'])
+        c.create_text(6, h-pad, text='0', anchor='w', fill=UI_COLORS['muted'])
         n = len(vals); span = max(1, n-1)
         p_in=[]; p_out=[]
         for i,(vin,vout) in enumerate(vals):
             x = pad + (w-pad-20)*i/span
             p_in.extend([x, h-pad - (h-pad-25)*vin/mx]); p_out.extend([x, h-pad - (h-pad-25)*vout/mx])
-        c.create_line(*p_in, fill='#2563EB', width=2, smooth=True)
-        c.create_line(*p_out, fill='#F59E0B', width=2, smooth=True)
-        c.create_text(w-160, 18, text='IN', fill='#2563EB'); c.create_text(w-90, 18, text='OUT', fill='#F59E0B')
+        c.create_line(*p_in, fill=UI_COLORS['accent'], width=2, smooth=True)
+        c.create_line(*p_out, fill=UI_COLORS['warning'], width=2, smooth=True)
+        c.create_text(w-160, 18, text='IN', fill=UI_COLORS['accent']); c.create_text(w-90, 18, text='OUT', fill=UI_COLORS['warning'])
 
     def save_profile(self):
         try:
@@ -455,12 +458,12 @@ class NetworkTopologyPage(BaseAdvancedPage):
         super().__init__(parent,activity_callback);self.status=tk.StringVar(value='Topology uses managed Network Devices. Add links manually, then Refresh.');self._build();self.refresh()
 
     def _build(self):
-        ctl=tk.Frame(self.parent,bg='#F3F4F6');ctl.pack(fill='x',padx=25,pady=(0,8))
-        tk.Button(ctl,text='Thêm liên kết',command=self.add_link,bg='#2563EB',fg='white',relief='flat',padx=12).pack(side='left')
+        ctl=tk.Frame(self.parent,bg=UI_COLORS['background']);ctl.pack(fill='x',padx=25,pady=(0,8))
+        tk.Button(ctl,text='Thêm liên kết',command=self.add_link,bg=UI_COLORS['primary'],fg=UI_COLORS['text'],relief='flat',padx=12).pack(side='left')
         tk.Button(ctl,text='Xóa liên kết',command=self.delete_link).pack(side='left',padx=5)
         tk.Button(ctl,text='Làm mới',command=self.refresh).pack(side='left',padx=5)
-        tk.Label(ctl,textvariable=self.status,bg='#F3F4F6',fg='#6B7280').pack(side='left',padx=12)
-        box=self.card();self.canvas=tk.Canvas(box,bg='#F9FAFB',highlightthickness=0);self.canvas.pack(fill='both',expand=True,padx=10,pady=10);self.canvas.bind('<Configure>',lambda e:self.draw())
+        tk.Label(ctl,textvariable=self.status,bg=UI_COLORS['background'],fg=UI_COLORS['muted']).pack(side='left',padx=12)
+        box=self.card();self.canvas=tk.Canvas(box,bg=UI_COLORS['background'],highlightthickness=0);self.canvas.pack(fill='both',expand=True,padx=10,pady=10);self.canvas.bind('<Configure>',lambda e:self.draw())
 
     def refresh(self):
         conn=_connect()
@@ -487,7 +490,7 @@ class NetworkTopologyPage(BaseAdvancedPage):
             try:conn.execute('INSERT OR IGNORE INTO device_links(source_device_id,target_device_id,label,created_at) VALUES(?,?,?,?)',(a,b,lab.get().strip(),_now()));conn.commit()
             finally:conn.close()
             win.destroy();self.refresh();self.activity('Topology link added.')
-        tk.Button(win,text='Save Link',command=save,bg='#2563EB',fg='white').grid(row=3,column=1,pady=18,sticky='e')
+        tk.Button(win,text='Save Link',command=save,bg=UI_COLORS['primary'],fg=UI_COLORS['text']).grid(row=3,column=1,pady=18,sticky='e')
 
     def delete_link(self):
         if not self.links:messagebox.showinfo('Topology','No links to delete.');return
@@ -506,7 +509,7 @@ class NetworkTopologyPage(BaseAdvancedPage):
         if not hasattr(self,'canvas'):return
         c=self.canvas;c.delete('all');w=max(700,c.winfo_width());h=max(430,c.winfo_height())
         if not self.devices:
-            c.create_text(w/2,h/2,text='No managed devices. Add devices in Network Devices first.',fill='#6B7280',font=('Segoe UI',12));return
+            c.create_text(w/2,h/2,text='No managed devices. Add devices in Network Devices first.',fill=UI_COLORS['muted'],font=('Segoe UI',12));return
         # Hierarchical layout by device type; fallback rows.
         levels={'firewall':0,'router':1,'core':2,'switch':3,'ap':4,'access point':4,'server':4,'camera':5,'pc':5}
         groups={}
@@ -523,30 +526,40 @@ class NetworkTopologyPage(BaseAdvancedPage):
         byid={d['id']:d for d in self.devices}
         for l in self.links:
             if l['source_device_id'] in pos and l['target_device_id'] in pos:
-                x1,y1=pos[l['source_device_id']];x2,y2=pos[l['target_device_id']];c.create_line(x1,y1,x2,y2,fill='#64748B',width=2)
-                if l.get('label'):c.create_text((x1+x2)/2,(y1+y2)/2-10,text=l['label'],fill='#475569',font=('Segoe UI',8))
+                x1,y1=pos[l['source_device_id']];x2,y2=pos[l['target_device_id']];c.create_line(x1,y1,x2,y2,fill=UI_COLORS['muted'],width=2)
+                if l.get('label'):c.create_text((x1+x2)/2,(y1+y2)/2-10,text=l['label'],fill=UI_COLORS['muted'],font=('Segoe UI',8))
         for d in self.devices:
-            x,y=pos[d['id']];status=(d.get('status') or 'Unknown').lower();fill='#DCFCE7' if status=='online' else ('#FEE2E2' if status=='offline' else '#E5E7EB');outline='#16A34A' if status=='online' else ('#DC2626' if status=='offline' else '#64748B')
+            x,y=pos[d['id']];status=(d.get('status') or 'Unknown').lower();fill=UI_COLORS['success_bg'] if status=='online' else (UI_COLORS['danger_bg'] if status=='offline' else UI_COLORS['surface_alt']);outline=UI_COLORS['success'] if status=='online' else (UI_COLORS['danger'] if status=='offline' else UI_COLORS['muted'])
             c.create_rectangle(x-72,y-26,x+72,y+26,fill=fill,outline=outline,width=2)
-            c.create_text(x,y-6,text=d.get('name') or d.get('ip') or 'Device',font=('Segoe UI',9,'bold'))
-            c.create_text(x,y+11,text=d.get('ip') or '',font=('Segoe UI',8),fill='#475569')
+            c.create_text(x,y-6,text=d.get('name') or d.get('ip') or 'Device',font=('Segoe UI',9,'bold'), fill=UI_COLORS['text'])
+            c.create_text(x,y+11,text=d.get('ip') or '',font=('Segoe UI',8),fill=UI_COLORS['muted'])
 
 
 class SSHAutomationPage(BaseAdvancedPage):
     def __init__(self,parent,activity_callback=None):
-        super().__init__(parent,activity_callback);self.host=tk.StringVar();self.port=tk.StringVar(value='22');self.username=tk.StringVar();self.password=tk.StringVar();self.template=tk.StringVar();self.status=tk.StringVar(value='Sẵn sàng');self._build();self._load_templates()
+        super().__init__(parent,activity_callback);self.host=tk.StringVar();self.port=tk.StringVar(value='22');self.username=tk.StringVar();self.password=tk.StringVar();self.template=tk.StringVar();self.status=tk.StringVar(value='Sẵn sàng');self.mode=tk.StringVar(value='exec');self.paging=tk.StringVar();self._busy=False;self._results=queue.Queue();self._build();self._load_templates()
 
     def _build(self):
-        ctl=tk.Frame(self.parent,bg='white',bd=1,relief='solid');ctl.pack(fill='x',padx=25,pady=(0,10))
-        for i,(lab,var,w,show) in enumerate([('Máy chủ/IP',self.host,18,None),('Port',self.port,6,None),('Username',self.username,14,None),('Password',self.password,14,'*')]):
-            tk.Label(ctl,text=lab,bg='white').grid(row=0,column=i*2,padx=(10,3),pady=12);tk.Entry(ctl,textvariable=var,width=w,show=show or '').grid(row=0,column=i*2+1,pady=12)
-        tk.Label(ctl,text='Mẫu lệnh',bg='white').grid(row=1,column=0,padx=(10,3),pady=(0,12));self.combo=ttk.Combobox(ctl,textvariable=self.template,state='readonly',width=25);self.combo.grid(row=1,column=1,columnspan=2,sticky='w',pady=(0,12));self.combo.bind('<<ComboboxSelected>>',lambda e:self.apply_template())
-        tk.Button(ctl,text='Chạy lệnh',command=self.run_commands,bg='#2563EB',fg='white',relief='flat',padx=12).grid(row=1,column=3,pady=(0,12))
-        tk.Button(ctl,text='Lưu mẫu',command=self.save_template).grid(row=1,column=5,pady=(0,12))
-        tk.Button(ctl,text='Sao lưu cấu hình đang chạy',command=self.backup_running).grid(row=1,column=7,pady=(0,12),padx=5)
-        tk.Label(ctl,textvariable=self.status,bg='white',fg='#6B7280').grid(row=2,column=0,columnspan=8,sticky='w',padx=10,pady=(0,8))
-        box=self.card();tk.Label(box,text='Lệnh (mỗi dòng một lệnh)',bg='white',font=('Segoe UI',10,'bold')).pack(anchor='w',padx=12,pady=(10,4));self.commands=tk.Text(box,height=9,font=('Consolas',10));self.commands.pack(fill='x',padx=12)
-        tk.Label(box,text='Kết quả',bg='white',font=('Segoe UI',10,'bold')).pack(anchor='w',padx=12,pady=(10,4));self.output=tk.Text(box,font=('Consolas',9),bg='#111827',fg='#E5E7EB');self.output.pack(fill='both',expand=True,padx=12,pady=(0,12))
+        from tkinter.scrolledtext import ScrolledText
+        from modules.responsive_layout import FlowRow,AdaptiveForm,ScrollablePanel
+        self.panel=ScrollablePanel(self.parent);body=self.panel.body
+        form=ttk.Frame(body);form.pack(fill='x');fields=[]
+        for label,var in [('Máy chủ/IP',self.host),('Cổng',self.port),('Tài khoản',self.username),('Mật khẩu',self.password),('Chế độ SSH',self.mode),('Lệnh tắt phân trang',self.paging)]:
+            field=ttk.Frame(form);fields.append(field);ttk.Label(field,text=label).pack(anchor='w')
+            if var is self.mode:widget=ttk.Combobox(field,textvariable=var,values=('exec','shell'),state='readonly',width=1)
+            else:widget=ttk.Entry(field,textvariable=var,width=1,show='*' if var is self.password else '')
+            widget.pack(fill='x',pady=4)
+        AdaptiveForm(form,fields)
+        ttk.Label(body,text='Mẫu lệnh').pack(anchor='w',pady=(8,2))
+        self.combo=ttk.Combobox(body,textvariable=self.template,state='readonly',width=1);self.combo.pack(fill='x');self.combo.bind('<<ComboboxSelected>>',lambda e:self.apply_template())
+        bar=ttk.Frame(body);bar.pack(fill='x',pady=8)
+        FlowRow(bar,[ttk.Button(bar,text=text,command=command) for text,command in [('Chạy lệnh',self.run_commands),('Lưu mẫu',self.save_template),('Sao lưu cấu hình đang chạy',self.backup_running)]])
+        status=ttk.Label(body,textvariable=self.status,wraplength=500);status.pack(fill='x')
+        body.bind('<Configure>',lambda event:status.configure(wraplength=max(200,event.width-24)),add='+')
+        ttk.Label(body,text='Lệnh (mỗi dòng một lệnh)').pack(anchor='w',pady=(10,4))
+        self.commands=ScrolledText(body,height=8,width=1,wrap='word',font=('Consolas',10));self.commands.pack(fill='x')
+        ttk.Label(body,text='Kết quả').pack(anchor='w',pady=(10,4))
+        self.output=ScrolledText(body,height=16,width=1,wrap='word',font=('Consolas',9),bg=UI_COLORS['sidebar'],fg=UI_COLORS['text']);self.output.pack(fill='both',expand=True)
 
     def _paramiko(self):
         try:
@@ -555,29 +568,67 @@ class SSHAutomationPage(BaseAdvancedPage):
         except ImportError:
             raise RuntimeError('Paramiko is not installed. Run: pip install -r requirements.txt')
 
-    def _execute(self, commands):
-        paramiko=self._paramiko();host=self.host.get().strip();user=self.username.get().strip();pwd=self.password.get();port=int(self.port.get())
-        if not host or not user:raise ValueError('Host and Username are required.')
-        client=paramiko.SSHClient();client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    def _snapshot(self):
+        from modules.ssh_runner import connection_options
+        options = connection_options(self.host.get(), self.port.get(), self.username.get(), self.password.get(), self.mode.get())
+        options['paging'] = self.paging.get().strip()
+        return options
+
+    def _execute(self, commands, options):
+        from modules.ssh_runner import execute_commands
+        return execute_commands(options, commands, self._paramiko(), timeout=20)
+
+    def _start_job(self, commands, backup=False):
+        if self._busy:
+            return
         try:
-            client.connect(hostname=host,port=port,username=user,password=pwd,timeout=7,look_for_keys=True,allow_agent=True)
-            pieces=[]
-            for cmd in commands:
-                stdin,stdout,stderr=client.exec_command(cmd,timeout=20)
-                out=stdout.read().decode(errors='replace');err=stderr.read().decode(errors='replace')
-                pieces.append(f'$ {cmd}\n{out}{err}')
-            return '\n'.join(pieces)
-        finally:client.close()
+            options = self._snapshot()
+        except Exception as exc:
+            self.status.set(str(exc))
+            return
+        self._busy = True
+        self.status.set('Đang sao lưu...' if backup else 'Đang kết nối...')
+        self.output.delete('1.0', 'end')
+        def worker():
+            try:
+                out = self._execute(commands, options)
+                if backup:
+                    name = re.sub(r'[^A-Za-z0-9_.-]', '_', options['host'])
+                    dst = BACKUP_DIR / f"{name}_ssh_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}.cfg"
+                    dst.write_text(out, encoding='utf-8')
+                    conn = _connect()
+                    try:
+                        conn.execute('INSERT INTO config_backups(device_name,source,file_path,size_bytes,note,created_at) VALUES(?,?,?,?,?,?)', (name,'SSH',str(dst),dst.stat().st_size,'Automatic SSH backup',_now()))
+                        conn.commit()
+                    finally:
+                        conn.close()
+                    out = str(dst)
+                self._results.put((out, None, backup))
+            except Exception as exc:
+                self._results.put(('', str(exc), backup))
+        threading.Thread(target=worker, daemon=True).start()
+        self.parent.after(100, self._poll_result)
+
+    def _poll_result(self):
+        if not self.output.winfo_exists():
+            return
+        try:
+            out, err, backup = self._results.get_nowait()
+        except queue.Empty:
+            self.parent.after(100, self._poll_result)
+            return
+        self._busy = False
+        if backup:
+            self._backup_done(out, err)
+        else:
+            self._finish(out, err)
 
     def run_commands(self):
-        cmds=[x.strip() for x in self.commands.get('1.0','end').splitlines() if x.strip()]
-        if not cmds:messagebox.showwarning('Tự động hóa SSH','Enter at least one command.');return
-        self.status.set('Connecting...');self.output.delete('1.0','end')
-        def worker():
-            try:out=self._execute(cmds);self.parent.after(0,lambda:self._finish(out,None))
-            except Exception as exc:
-                msg=str(exc);self.parent.after(0,lambda m=msg:self._finish('',m))
-        threading.Thread(target=worker,daemon=True).start()
+        cmds = [x.strip() for x in self.commands.get('1.0','end').splitlines() if x.strip()]
+        if not cmds:
+            messagebox.showwarning('Tự động hóa SSH', 'Nhập ít nhất một lệnh.')
+            return
+        self._start_job(cmds)
 
     def _finish(self,out,err):
         if err:self.status.set('Failed');self.output.insert('end','ERROR: '+err);return
@@ -606,17 +657,7 @@ class SSHAutomationPage(BaseAdvancedPage):
         # User can change this command for non-Cisco devices before running.
         cmd=simpledialog.askstring('SSH Backup','Command that prints running configuration:',initialvalue='show running-config',parent=self.parent)
         if not cmd:return
-        self.status.set('Backing up...')
-        def worker():
-            try:
-                out=self._execute([cmd]);name=(self.host.get().strip() or 'device').replace(':','_');dst=BACKUP_DIR/f"{name}_ssh_{datetime.now().strftime('%Y%m%d_%H%M%S')}.cfg";dst.write_text(out,encoding='utf-8')
-                conn=_connect()
-                try:conn.execute('INSERT INTO config_backups(device_name,source,file_path,size_bytes,note,created_at) VALUES(?,?,?,?,?,?)',(name,'SSH',str(dst),dst.stat().st_size,'Automatic SSH backup',_now()));conn.commit()
-                finally:conn.close()
-                self.parent.after(0,lambda:self._backup_done(str(dst),None))
-            except Exception as exc:
-                msg=str(exc);self.parent.after(0,lambda m=msg:self._backup_done('',m))
-        threading.Thread(target=worker,daemon=True).start()
+        self._start_job([cmd], backup=True)
 
     def _backup_done(self,path,err):
         if err:self.status.set('Backup failed: '+err);return
@@ -647,23 +688,23 @@ class NotificationsPage(BaseAdvancedPage):
         self._build()
 
     def _build(self):
-        box=self.card(); inner=tk.Frame(box,bg='white'); inner.pack(anchor='nw',padx=30,pady=20,fill='x')
-        tk.Label(inner,text='Notification Center',bg='white',fg='#111827',font=('Segoe UI',15,'bold')).grid(row=0,column=0,columnspan=4,sticky='w')
-        tk.Label(inner,text='Gửi cảnh báo quan trọng, có chống gửi trùng theo thời gian cooldown.',bg='white',fg='#6B7280').grid(row=1,column=0,columnspan=4,sticky='w',pady=(2,12))
-        tk.Checkbutton(inner,text='Bật thông báo tự động',variable=self.vars['notify_enabled'],onvalue='1',offvalue='0',bg='white').grid(row=2,column=0,sticky='w')
-        tk.Checkbutton(inner,text='Telegram',variable=self.vars['notify_telegram'],onvalue='1',offvalue='0',bg='white').grid(row=2,column=1,sticky='w')
-        tk.Checkbutton(inner,text='Email SMTP',variable=self.vars['notify_email'],onvalue='1',offvalue='0',bg='white').grid(row=2,column=2,sticky='w')
-        events=tk.LabelFrame(inner,text='Sự kiện gửi thông báo',bg='white',padx=8,pady=6); events.grid(row=3,column=0,columnspan=4,sticky='ew',pady=10)
+        box=self.card(); inner=tk.Frame(box,bg=UI_COLORS['surface']); inner.pack(anchor='nw',padx=30,pady=20,fill='x')
+        tk.Label(inner,text='Notification Center',bg=UI_COLORS['surface'],fg=UI_COLORS['text'],font=('Segoe UI',15,'bold')).grid(row=0,column=0,columnspan=4,sticky='w')
+        tk.Label(inner,text='Gửi cảnh báo quan trọng, có chống gửi trùng theo thời gian cooldown.',bg=UI_COLORS['surface'],fg=UI_COLORS['muted']).grid(row=1,column=0,columnspan=4,sticky='w',pady=(2,12))
+        tk.Checkbutton(inner,text='Bật thông báo tự động',variable=self.vars['notify_enabled'],onvalue='1',offvalue='0',bg=UI_COLORS['surface']).grid(row=2,column=0,sticky='w')
+        tk.Checkbutton(inner,text='Telegram',variable=self.vars['notify_telegram'],onvalue='1',offvalue='0',bg=UI_COLORS['surface']).grid(row=2,column=1,sticky='w')
+        tk.Checkbutton(inner,text='Email SMTP',variable=self.vars['notify_email'],onvalue='1',offvalue='0',bg=UI_COLORS['surface']).grid(row=2,column=2,sticky='w')
+        events=tk.LabelFrame(inner,text='Sự kiện gửi thông báo',bg=UI_COLORS['surface'],padx=8,pady=6); events.grid(row=3,column=0,columnspan=4,sticky='ew',pady=10)
         for i,(txt,key) in enumerate([('Thiết bị Offline','notify_offline'),('Configuration Drift','notify_drift'),('Security HIGH','notify_security'),('Daily Audit WARN/HIGH','notify_daily_audit')]):
-            tk.Checkbutton(events,text=txt,variable=self.vars[key],onvalue='1',offvalue='0',bg='white').grid(row=0,column=i,sticky='w',padx=(0,18))
+            tk.Checkbutton(events,text=txt,variable=self.vars[key],onvalue='1',offvalue='0',bg=UI_COLORS['surface']).grid(row=0,column=i,sticky='w',padx=(0,18))
         fields=[('Cooldown (phút)',self.vars['notify_cooldown_min'],''),('Telegram Bot Token',self.telegram_token,'*'),('Telegram Chat ID',self.vars['telegram_chat_id'],''),('SMTP Host',self.vars['smtp_host'],''),('SMTP Port',self.vars['smtp_port'],''),('SMTP Username',self.vars['smtp_user'],''),('SMTP Password',self.smtp_password,'*'),('Email To',self.vars['smtp_to'],'')]
         for i,(lab,var,show) in enumerate(fields,4):
-            tk.Label(inner,text=lab,bg='white',font=('Segoe UI',10,'bold')).grid(row=i,column=0,sticky='w',pady=6,padx=(0,15)); tk.Entry(inner,textvariable=var,width=42,show=show).grid(row=i,column=1,columnspan=2,sticky='w',pady=6)
-        btn=tk.Frame(inner,bg='white'); btn.grid(row=12,column=0,columnspan=4,sticky='w',pady=14)
-        tk.Button(btn,text='Lưu cấu hình',command=self.save,bg='#2563EB',fg='white',relief='flat',padx=12).pack(side='left',padx=(0,8))
+            tk.Label(inner,text=lab,bg=UI_COLORS['surface'],font=('Segoe UI',10,'bold')).grid(row=i,column=0,sticky='w',pady=6,padx=(0,15)); tk.Entry(inner,textvariable=var,width=42,show=show).grid(row=i,column=1,columnspan=2,sticky='w',pady=6)
+        btn=tk.Frame(inner,bg=UI_COLORS['surface']); btn.grid(row=12,column=0,columnspan=4,sticky='w',pady=14)
+        tk.Button(btn,text='Lưu cấu hình',command=self.save,bg=UI_COLORS['primary'],fg=UI_COLORS['text'],relief='flat',padx=12).pack(side='left',padx=(0,8))
         tk.Button(btn,text='Test Telegram',command=self.test_telegram).pack(side='left',padx=4)
         tk.Button(btn,text='Test Email',command=self.test_email).pack(side='left',padx=4)
-        tk.Label(inner,textvariable=self.status,bg='white',fg='#6B7280',wraplength=760,justify='left').grid(row=13,column=0,columnspan=4,sticky='w')
+        tk.Label(inner,textvariable=self.status,bg=UI_COLORS['surface'],fg=UI_COLORS['muted'],wraplength=760,justify='left').grid(row=13,column=0,columnspan=4,sticky='w')
 
     def save(self):
         try:
@@ -773,9 +814,9 @@ def open_device_detail(parent, device_id):
     finally:conn.close()
     win=tk.Toplevel(parent);win.title(f"Device Detail - {d.get('name') or d.get('ip')}");win.geometry('900x620');win.transient(parent.winfo_toplevel())
     nb=ttk.Notebook(win);nb.pack(fill='both',expand=True,padx=10,pady=10)
-    ov=tk.Frame(nb,bg='white');nb.add(ov,text='Tổng quan')
+    ov=tk.Frame(nb,bg=UI_COLORS['surface']);nb.add(ov,text='Tổng quan')
     text='\n'.join([f"Name: {d.get('name','')}",f"IP: {d.get('ip','')}",f"Type: {d.get('device_type','')}",f"Vendor: {d.get('vendor','')}",f"Location: {d.get('location','')}",f"Status: {d.get('status','')}",f"Note: {d.get('note','')}"])
-    tk.Label(ov,text=text,bg='white',justify='left',anchor='nw',font=('Segoe UI',11)).pack(fill='both',expand=True,padx=25,pady=25,anchor='nw')
+    tk.Label(ov,text=text,bg=UI_COLORS['surface'],justify='left',anchor='nw',font=('Segoe UI',11)).pack(fill='both',expand=True,padx=25,pady=25,anchor='nw')
     def table_tab(title,columns,rows):
         f=tk.Frame(nb);nb.add(f,text=title);t=ttk.Treeview(f,columns=columns,show='headings')
         for c in columns:t.heading(c,text=c.replace('_',' ').title());t.column(c,width=130,anchor='w')

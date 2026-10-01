@@ -1,3 +1,4 @@
+from modules.ui_theme import PALETTE as UI_COLORS
 import json
 import os
 import platform
@@ -11,7 +12,7 @@ from app_runtime import resource_path, hidden_subprocess_kwargs
 
 class DailyAuditPage(tk.Frame):
     def __init__(self, parent, activity_callback=None):
-        super().__init__(parent, bg="#F3F4F6")
+        super().__init__(parent, bg=UI_COLORS['background'])
         self.activity_callback = activity_callback or (lambda _msg: None)
         self.audit_dir = resource_path("tools", "daily_audit")
         self.config_path = self.audit_dir / "config.json"
@@ -24,15 +25,15 @@ class DailyAuditPage(tk.Frame):
         self.refresh_reports()
 
     def _build_ui(self):
-        top = tk.Frame(self, bg="white", bd=1, relief="solid")
+        top = tk.Frame(self, bg=UI_COLORS['surface'], bd=1, relief="solid")
         top.pack(fill="x", pady=(0, 12))
 
-        tk.Label(top, text="Windows Server Daily Audit", bg="white", fg="#111827",
+        tk.Label(top, text="Windows Server Daily Audit", bg=UI_COLORS['surface'], fg=UI_COLORS['text'],
                  font=("Segoe UI", 16, "bold")).pack(anchor="w", padx=16, pady=(14, 2))
         tk.Label(top, text="Event Log, tài nguyên, dịch vụ, firewall, cổng TCP, Defender, tài khoản, patch và backup.",
-                 bg="white", fg="#6B7280", font=("Segoe UI", 9)).pack(anchor="w", padx=16, pady=(0, 12))
+                 bg=UI_COLORS['surface'], fg=UI_COLORS['muted'], font=("Segoe UI", 9)).pack(anchor="w", padx=16, pady=(0, 12))
 
-        actions = tk.Frame(top, bg="white")
+        actions = tk.Frame(top, bg=UI_COLORS['surface'])
         actions.pack(fill="x", padx=16, pady=(0, 14))
         self.run_btn = ttk.Button(actions, text="Chạy Audit ngay", command=self.run_audit)
         self.run_btn.pack(side="left", padx=(0, 8))
@@ -42,21 +43,21 @@ class DailyAuditPage(tk.Frame):
         ttk.Button(actions, text="Cài lịch chạy hằng ngày", command=self.install_schedule).pack(side="left", padx=4)
 
         self.status_var = tk.StringVar(value="Sẵn sàng")
-        tk.Label(top, textvariable=self.status_var, bg="white", fg="#2563EB",
+        tk.Label(top, textvariable=self.status_var, bg=UI_COLORS['surface'], fg=UI_COLORS['accent'],
                  font=("Segoe UI", 9, "bold")).pack(anchor="w", padx=16, pady=(0, 12))
 
-        summary = tk.Frame(self, bg="#F3F4F6")
+        summary = tk.Frame(self, bg=UI_COLORS['background'])
         summary.pack(fill="x", pady=(0, 12))
         self.cards = {}
         for key, label in [("High", "HIGH"), ("Warn", "WARN"), ("Review", "REVIEW"), ("Info", "INFO")]:
-            card = tk.Frame(summary, bg="white", bd=1, relief="solid")
+            card = tk.Frame(summary, bg=UI_COLORS['surface'], bd=1, relief="solid")
             card.pack(side="left", fill="x", expand=True, padx=(0, 8))
             value = tk.StringVar(value="0")
-            tk.Label(card, text=label, bg="white", fg="#6B7280", font=("Segoe UI", 9, "bold")).pack(pady=(10, 0))
-            tk.Label(card, textvariable=value, bg="white", fg="#111827", font=("Segoe UI", 20, "bold")).pack(pady=(0, 10))
+            tk.Label(card, text=label, bg=UI_COLORS['surface'], fg=UI_COLORS['muted'], font=("Segoe UI", 9, "bold")).pack(pady=(10, 0))
+            tk.Label(card, textvariable=value, bg=UI_COLORS['surface'], fg=UI_COLORS['text'], font=("Segoe UI", 20, "bold")).pack(pady=(0, 10))
             self.cards[key] = value
 
-        table_box = tk.Frame(self, bg="white", bd=1, relief="solid")
+        table_box = tk.Frame(self, bg=UI_COLORS['surface'], bd=1, relief="solid")
         table_box.pack(fill="both", expand=True)
         columns = ("Severity", "Category", "Item", "Details")
         self.tree = ttk.Treeview(table_box, columns=columns, show="headings", height=18)

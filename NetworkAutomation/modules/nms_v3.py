@@ -1,3 +1,4 @@
+from modules.ui_theme import PALETTE as UI_COLORS
 import threading, time, socket, subprocess, platform
 from datetime import datetime, timedelta
 import tkinter as tk
@@ -45,18 +46,18 @@ class ResourceMonitorPage:
         ensure_v3_tables();self.parent=parent;self.activity=activity_callback or (lambda m:None)
         self.host=tk.StringVar();self.community=tk.StringVar(value='public');self.preset=tk.StringVar(value=list(self.PRESETS)[0]);self.cpu_oid=tk.StringVar(value=self.PRESETS[self.preset.get()][0]);self.mem_used_oid=tk.StringVar();self.mem_total_oid=tk.StringVar();self.status=tk.StringVar(value='Sẵn sàng');self.device_info=tk.StringVar(value='Chưa kiểm tra SNMP.');self._build()
     def _build(self):
-        f=tk.Frame(self.parent,bg='white',bd=1,relief='solid');f.pack(fill='x',padx=25,pady=(0,10))
+        f=tk.Frame(self.parent,bg=UI_COLORS['surface'],bd=1,relief='solid');f.pack(fill='x',padx=25,pady=(0,10))
         fields=[('IP / Host',self.host,18),('Community',self.community,13)]
-        for lab,var,w in fields:tk.Label(f,text=lab,bg='white').pack(side='left',padx=(10,3),pady=10);tk.Entry(f,textvariable=var,width=w).pack(side='left')
+        for lab,var,w in fields:tk.Label(f,text=lab,bg=UI_COLORS['surface']).pack(side='left',padx=(10,3),pady=10);tk.Entry(f,textvariable=var,width=w).pack(side='left')
         cb=ttk.Combobox(f,textvariable=self.preset,values=list(self.PRESETS),state='readonly',width=25);cb.pack(side='left',padx=8);cb.bind('<<ComboboxSelected>>',self._preset)
-        tk.Button(f,text='Kiểm tra SNMP',command=self.test_snmp,bg='#0F766E',fg='white',relief='flat').pack(side='left',padx=4)
-        tk.Button(f,text='Đọc CPU/RAM',command=self.poll,bg='#2563EB',fg='white',relief='flat').pack(side='left',padx=4);tk.Label(f,textvariable=self.status,bg='white').pack(side='left',padx=6)
-        info=tk.LabelFrame(self.parent,text='Chẩn đoán SNMP',bg='#F3F4F6');info.pack(fill='x',padx=25,pady=(0,10));tk.Label(info,textvariable=self.device_info,bg='#F3F4F6',fg='#374151',justify='left',anchor='w',wraplength=900).pack(fill='x',padx=8,pady=7)
-        o=tk.LabelFrame(self.parent,text='OID tài nguyên (có thể thay đổi theo hãng/model)',bg='#F3F4F6');o.pack(fill='x',padx=25,pady=(0,10))
-        for i,(lab,var) in enumerate([('CPU %',self.cpu_oid),('RAM đã dùng',self.mem_used_oid),('RAM tổng',self.mem_total_oid)]):tk.Label(o,text=lab,bg='#F3F4F6').grid(row=i,column=0,sticky='w',padx=8,pady=4);tk.Entry(o,textvariable=var,width=58).grid(row=i,column=1,sticky='ew',padx=8,pady=4)
+        tk.Button(f,text='Kiểm tra SNMP',command=self.test_snmp,bg=UI_COLORS['primary'],fg=UI_COLORS['text'],relief='flat').pack(side='left',padx=4)
+        tk.Button(f,text='Đọc CPU/RAM',command=self.poll,bg=UI_COLORS['primary'],fg=UI_COLORS['text'],relief='flat').pack(side='left',padx=4);tk.Label(f,textvariable=self.status,bg=UI_COLORS['surface']).pack(side='left',padx=6)
+        info=tk.LabelFrame(self.parent,text='Chẩn đoán SNMP',bg=UI_COLORS['background']);info.pack(fill='x',padx=25,pady=(0,10));tk.Label(info,textvariable=self.device_info,bg=UI_COLORS['background'],fg=UI_COLORS['text'],justify='left',anchor='w',wraplength=900).pack(fill='x',padx=8,pady=7)
+        o=tk.LabelFrame(self.parent,text='OID tài nguyên (có thể thay đổi theo hãng/model)',bg=UI_COLORS['background']);o.pack(fill='x',padx=25,pady=(0,10))
+        for i,(lab,var) in enumerate([('CPU %',self.cpu_oid),('RAM đã dùng',self.mem_used_oid),('RAM tổng',self.mem_total_oid)]):tk.Label(o,text=lab,bg=UI_COLORS['background']).grid(row=i,column=0,sticky='w',padx=8,pady=4);tk.Entry(o,textvariable=var,width=58).grid(row=i,column=1,sticky='ew',padx=8,pady=4)
         o.columnconfigure(1,weight=1)
-        b=tk.Frame(self.parent,bg='white',bd=1,relief='solid');b.pack(fill='both',expand=True,padx=25,pady=(0,10));self.cpu=tk.StringVar(value='-- %');self.mem=tk.StringVar(value='-- %')
-        for title,var in [('CPU',self.cpu),('RAM',self.mem)]:x=tk.Frame(b,bg='white');x.pack(side='left',fill='both',expand=True,padx=30,pady=30);tk.Label(x,text=title,bg='white',font=('Segoe UI',14,'bold')).pack();tk.Label(x,textvariable=var,bg='white',font=('Segoe UI',34,'bold')).pack(pady=15)
+        b=tk.Frame(self.parent,bg=UI_COLORS['surface'],bd=1,relief='solid');b.pack(fill='both',expand=True,padx=25,pady=(0,10));self.cpu=tk.StringVar(value='-- %');self.mem=tk.StringVar(value='-- %')
+        for title,var in [('CPU',self.cpu),('RAM',self.mem)]:x=tk.Frame(b,bg=UI_COLORS['surface']);x.pack(side='left',fill='both',expand=True,padx=30,pady=30);tk.Label(x,text=title,bg=UI_COLORS['surface'],font=('Segoe UI',14,'bold')).pack();tk.Label(x,textvariable=var,bg=UI_COLORS['surface'],font=('Segoe UI',34,'bold')).pack(pady=15)
     def _preset(self,e=None):
         if self.preset.get()=='Theo hồ sơ thiết bị':
             try:
@@ -153,10 +154,10 @@ class AdvancedPortMonitorPage:
     def __init__(self,parent,activity_callback=None):
         ensure_v3_tables();self.parent=parent;self.activity=activity_callback or (lambda m:None);self.host=tk.StringVar();self.community=tk.StringVar(value='public');self.indices=tk.StringVar(value='1,2,3,4');self.status=tk.StringVar(value='Sẵn sàng');self._build()
     def _build(self):
-        f=tk.Frame(self.parent,bg='white',bd=1,relief='solid');f.pack(fill='x',padx=25,pady=(0,10))
-        for lab,var,w in [('IP / Host',self.host,18),('Community',self.community,13),('IfIndex',self.indices,24)]:tk.Label(f,text=lab,bg='white').pack(side='left',padx=(10,3),pady=10);tk.Entry(f,textvariable=var,width=w).pack(side='left')
-        tk.Button(f,text='Đọc chi tiết cổng',command=self.poll,bg='#2563EB',fg='white',relief='flat').pack(side='left',padx=8);tk.Label(f,textvariable=self.status,bg='white').pack(side='left')
-        b=tk.Frame(self.parent,bg='white',bd=1,relief='solid');b.pack(fill='both',expand=True,padx=25,pady=(0,10));cols=('idx','name','state','speed','inerr','outerr','indisc','outdisc');self.t=ttk.Treeview(b,columns=cols,show='headings')
+        f=tk.Frame(self.parent,bg=UI_COLORS['surface'],bd=1,relief='solid');f.pack(fill='x',padx=25,pady=(0,10))
+        for lab,var,w in [('IP / Host',self.host,18),('Community',self.community,13),('IfIndex',self.indices,24)]:tk.Label(f,text=lab,bg=UI_COLORS['surface']).pack(side='left',padx=(10,3),pady=10);tk.Entry(f,textvariable=var,width=w).pack(side='left')
+        tk.Button(f,text='Đọc chi tiết cổng',command=self.poll,bg=UI_COLORS['primary'],fg=UI_COLORS['text'],relief='flat').pack(side='left',padx=8);tk.Label(f,textvariable=self.status,bg=UI_COLORS['surface']).pack(side='left')
+        b=tk.Frame(self.parent,bg=UI_COLORS['surface'],bd=1,relief='solid');b.pack(fill='both',expand=True,padx=25,pady=(0,10));cols=('idx','name','state','speed','inerr','outerr','indisc','outdisc');self.t=ttk.Treeview(b,columns=cols,show='headings')
         heads=['IfIndex','Tên cổng','Trạng thái','Tốc độ','Lỗi IN','Lỗi OUT','Discard IN','Discard OUT']
         for c,h in zip(cols,heads):self.t.heading(c,text=h);self.t.column(c,width=110,anchor='w')
         self.t.pack(fill='both',expand=True,padx=8,pady=8)
@@ -183,8 +184,8 @@ class AlertRulesPage:
     METRICS=['CPU %','RAM %','Mất gói %','Độ trễ ms','Lỗi cổng IN','Lỗi cổng OUT']
     def __init__(self,parent,activity_callback=None):ensure_v3_tables();self.parent=parent;self.activity=activity_callback or (lambda m:None);self._build();self.refresh()
     def _build(self):
-        f=tk.Frame(self.parent,bg='#F3F4F6');f.pack(fill='x',padx=25,pady=(0,8));tk.Button(f,text='Thêm quy tắc',command=self.add,bg='#2563EB',fg='white',relief='flat').pack(side='left');tk.Button(f,text='Bật / Tắt',command=self.toggle).pack(side='left',padx=5);tk.Button(f,text='Xóa',command=self.delete).pack(side='left',padx=5);tk.Button(f,text='Đánh giá ngay',command=self.evaluate).pack(side='left',padx=5)
-        b=tk.Frame(self.parent,bg='white',bd=1,relief='solid');b.pack(fill='both',expand=True,padx=25,pady=(0,10));cols=('id','name','host','metric','op','threshold','severity','enabled');self.t=ttk.Treeview(b,columns=cols,show='headings')
+        f=tk.Frame(self.parent,bg=UI_COLORS['background']);f.pack(fill='x',padx=25,pady=(0,8));tk.Button(f,text='Thêm quy tắc',command=self.add,bg=UI_COLORS['primary'],fg=UI_COLORS['text'],relief='flat').pack(side='left');tk.Button(f,text='Bật / Tắt',command=self.toggle).pack(side='left',padx=5);tk.Button(f,text='Xóa',command=self.delete).pack(side='left',padx=5);tk.Button(f,text='Đánh giá ngay',command=self.evaluate).pack(side='left',padx=5)
+        b=tk.Frame(self.parent,bg=UI_COLORS['surface'],bd=1,relief='solid');b.pack(fill='both',expand=True,padx=25,pady=(0,10));cols=('id','name','host','metric','op','threshold','severity','enabled');self.t=ttk.Treeview(b,columns=cols,show='headings')
         for c in cols:self.t.heading(c,text=c.upper());self.t.column(c,width=120,anchor='w')
         self.t.pack(fill='both',expand=True,padx=8,pady=8)
     def refresh(self):
@@ -198,7 +199,7 @@ class AlertRulesPage:
             try:th=float(vars[4].get())
             except:messagebox.showerror('Quy tắc','Ngưỡng phải là số.',parent=w);return
             c=_connect();c.execute('INSERT INTO alert_rules(name,host,metric,operator,threshold,severity,enabled,created_at) VALUES(?,?,?,?,?,?,1,?)',(vars[0].get() or vars[2].get(),vars[1].get().strip(),vars[2].get(),vars[3].get(),th,vars[5].get(),_now()));c.commit();c.close();w.destroy();self.refresh()
-        tk.Button(w,text='Lưu',command=save,bg='#2563EB',fg='white').grid(row=6,column=1,pady=14,sticky='e')
+        tk.Button(w,text='Lưu',command=save,bg=UI_COLORS['primary'],fg=UI_COLORS['text']).grid(row=6,column=1,pady=14,sticky='e')
     def _id(self):
         s=self.t.selection();return int(self.t.item(s[0])['values'][0]) if s else None
     def toggle(self):
@@ -220,10 +221,10 @@ class AlertRulesPage:
 class HistoryChartsPage:
     def __init__(self,parent,activity_callback=None):ensure_v3_tables();self.parent=parent;self.host=tk.StringVar();self.period=tk.StringVar(value='24 giờ');self.metric=tk.StringVar(value='Traffic IN');self.status=tk.StringVar(value='Sẵn sàng');self._build()
     def _build(self):
-        f=tk.Frame(self.parent,bg='white',bd=1,relief='solid');f.pack(fill='x',padx=25,pady=(0,10))
-        for lab,var,vals,w in [('Host',self.host,None,20),('Khoảng thời gian',self.period,['24 giờ','7 ngày','30 ngày'],12),('Chỉ số',self.metric,['Traffic IN','Traffic OUT','CPU','RAM'],14)]:tk.Label(f,text=lab,bg='white').pack(side='left',padx=(10,3),pady=10);(ttk.Combobox(f,textvariable=var,values=vals,state='readonly',width=w) if vals else tk.Entry(f,textvariable=var,width=w)).pack(side='left')
-        tk.Button(f,text='Xem biểu đồ',command=self.refresh,bg='#2563EB',fg='white',relief='flat').pack(side='left',padx=8);tk.Label(f,textvariable=self.status,bg='white').pack(side='left')
-        self.c=tk.Canvas(self.parent,bg='white',highlightthickness=1,highlightbackground='#D1D5DB');self.c.pack(fill='both',expand=True,padx=25,pady=(0,15));self.c.bind('<Configure>',lambda e:self.draw())
+        f=tk.Frame(self.parent,bg=UI_COLORS['surface'],bd=1,relief='solid');f.pack(fill='x',padx=25,pady=(0,10))
+        for lab,var,vals,w in [('Host',self.host,None,20),('Khoảng thời gian',self.period,['24 giờ','7 ngày','30 ngày'],12),('Chỉ số',self.metric,['Traffic IN','Traffic OUT','CPU','RAM'],14)]:tk.Label(f,text=lab,bg=UI_COLORS['surface']).pack(side='left',padx=(10,3),pady=10);(ttk.Combobox(f,textvariable=var,values=vals,state='readonly',width=w) if vals else tk.Entry(f,textvariable=var,width=w)).pack(side='left')
+        tk.Button(f,text='Xem biểu đồ',command=self.refresh,bg=UI_COLORS['primary'],fg=UI_COLORS['text'],relief='flat').pack(side='left',padx=8);tk.Label(f,textvariable=self.status,bg=UI_COLORS['surface']).pack(side='left')
+        self.c=tk.Canvas(self.parent,bg=UI_COLORS['surface'],highlightthickness=1,highlightbackground=UI_COLORS['border']);self.c.pack(fill='both',expand=True,padx=25,pady=(0,15));self.c.bind('<Configure>',lambda e:self.draw())
         self.data=[]
     def refresh(self):
         host=self.host.get().strip();days={'24 giờ':1,'7 ngày':7,'30 ngày':30}[self.period.get()];cut=(datetime.now()-timedelta(days=days)).strftime('%Y-%m-%d %H:%M:%S');m=self.metric.get();c=_connect()
@@ -233,8 +234,8 @@ class HistoryChartsPage:
             col='cpu' if m=='CPU' else 'memory';rows=c.execute(f'SELECT created_at,{col} v FROM health_samples WHERE host=? AND created_at>=? AND {col} IS NOT NULL ORDER BY id',(host,cut)).fetchall()
         c.close();self.data=[(r['created_at'],float(r['v'] or 0)) for r in rows];self.status.set(f'{len(self.data)} mẫu');self.draw()
     def draw(self):
-        c=self.c;c.delete('all');w=max(500,c.winfo_width());h=max(300,c.winfo_height());p=55;c.create_line(p,20,p,h-p,fill='#9CA3AF');c.create_line(p,h-p,w-20,h-p,fill='#9CA3AF')
-        if len(self.data)<2:c.create_text(w/2,h/2,text='Chưa đủ dữ liệu lịch sử. Hãy chạy giám sát để thu thập mẫu.',fill='#6B7280');return
+        c=self.c;c.delete('all');w=max(500,c.winfo_width());h=max(300,c.winfo_height());p=55;c.create_line(p,20,p,h-p,fill=UI_COLORS['muted']);c.create_line(p,h-p,w-20,h-p,fill=UI_COLORS['muted'])
+        if len(self.data)<2:c.create_text(w/2,h/2,text='Chưa đủ dữ liệu lịch sử. Hãy chạy giám sát để thu thập mẫu.',fill=UI_COLORS['muted']);return
         vals=[v for _,v in self.data];mx=max(1,max(vals));pts=[]
         for i,v in enumerate(vals):x=p+(w-p-25)*i/(len(vals)-1);y=h-p-(h-p-30)*v/mx;pts.extend([x,y])
-        c.create_line(*pts,width=2,smooth=True);unit='%' if self.metric.get() in ('CPU','RAM') else 'bps';c.create_text(8,22,text=f'{mx:,.1f} {unit}',anchor='w');c.create_text(8,h-p,text='0',anchor='w');c.create_text(w/2,h-18,text=f'{self.period.get()} • {len(vals)} mẫu')
+        c.create_line(*pts,width=2,smooth=True, fill=UI_COLORS['muted']);unit='%' if self.metric.get() in ('CPU','RAM') else 'bps';c.create_text(8,22,text=f'{mx:,.1f} {unit}',anchor='w', fill=UI_COLORS['text']);c.create_text(8,h-p,text='0',anchor='w', fill=UI_COLORS['text']);c.create_text(w/2,h-18,text=f'{self.period.get()} • {len(vals)} mẫu', fill=UI_COLORS['text'])

@@ -1,3 +1,4 @@
+from modules.ui_theme import PALETTE as UI_COLORS
 import sqlite3, difflib, re
 from pathlib import Path
 from datetime import datetime
@@ -46,9 +47,9 @@ def posture(config):
 
 class SecurityAuditPage(tk.Frame):
     def __init__(self,parent,activity_callback=None):
-        super().__init__(parent,bg='#F3F4F6'); self.pack(fill='both',expand=True); self.activity=activity_callback or (lambda x:None)
-        top=tk.Frame(self,bg='#F3F4F6'); top.pack(fill='x',padx=16,pady=10)
-        tk.Label(top,text='Thiết bị / tên baseline',bg='#F3F4F6').pack(side='left')
+        super().__init__(parent,bg=UI_COLORS['background']); self.pack(fill='both',expand=True); self.activity=activity_callback or (lambda x:None)
+        top=tk.Frame(self,bg=UI_COLORS['background']); top.pack(fill='x',padx=16,pady=10)
+        tk.Label(top,text='Thiết bị / tên baseline',bg=UI_COLORS['background']).pack(side='left')
         self.device=tk.StringVar(); ttk.Entry(top,textvariable=self.device,width=28).pack(side='left',padx=8)
         ttk.Button(top,text='Mở config',command=self.load_file).pack(side='left',padx=3)
         ttk.Button(top,text='Lưu làm Baseline',command=self.save).pack(side='left',padx=3)
@@ -88,7 +89,7 @@ class SecurityAuditPage(tk.Frame):
         ttk.Label(f,text='Số kết nối SSH song song').grid(row=2,column=0,sticky='w',pady=5); ttk.Spinbox(f,from_=1,to=8,textvariable=workers,width=10).grid(row=2,column=1,sticky='w')
         ttk.Label(f,text='Lệnh read-only').grid(row=3,column=0,sticky='w',pady=5); ttk.Entry(f,textvariable=cmd,width=32).grid(row=3,column=1,sticky='ew')
         ttk.Label(f,text='Lần chạy gần nhất').grid(row=4,column=0,sticky='nw',pady=5); ttk.Label(f,text=(s.get('last_run') or 'Chưa có')+'\n'+status.get(),wraplength=290).grid(row=4,column=1,sticky='w')
-        ttk.Label(f,text='Scheduler chỉ audit thiết bị đã gán SSH credential. Không tự thay đổi cấu hình.',foreground='#6B7280',wraplength=470).grid(row=5,column=0,columnspan=2,sticky='w',pady=10)
+        ttk.Label(f,text='Scheduler chỉ audit thiết bị đã gán SSH credential. Không tự thay đổi cấu hình.',foreground=UI_COLORS['muted'],wraplength=470).grid(row=5,column=0,columnspan=2,sticky='w',pady=10)
         def save():
             try: save_settings(enabled.get(),tm.get().strip(),workers.get(),cmd.get()); messagebox.showinfo('Auto Audit','Đã lưu lịch audit.',parent=w); w.destroy()
             except Exception as e: messagebox.showerror('Auto Audit',str(e),parent=w)
@@ -114,7 +115,7 @@ class SecurityAuditPage(tk.Frame):
         choice=tk.StringVar(value=labels[0]); command=tk.StringVar(value='show running-config')
         tk.Label(w,text='Thiết bị').pack(anchor='w',padx=16,pady=(16,3)); ttk.Combobox(w,textvariable=choice,values=labels,state='readonly',width=66).pack(fill='x',padx=16)
         tk.Label(w,text='Lệnh lấy cấu hình (read-only)').pack(anchor='w',padx=16,pady=(10,3)); ttk.Entry(w,textvariable=command).pack(fill='x',padx=16)
-        status=tk.StringVar(value='Sẵn sàng'); tk.Label(w,textvariable=status,fg='#6B7280').pack(anchor='w',padx=16,pady=8)
+        status=tk.StringVar(value='Sẵn sàng'); tk.Label(w,textvariable=status,fg=UI_COLORS['muted']).pack(anchor='w',padx=16,pady=8)
         def start():
             idx=labels.index(choice.get()); d=ready[idx]; status.set('Đang kết nối SSH và audit...')
             def work():

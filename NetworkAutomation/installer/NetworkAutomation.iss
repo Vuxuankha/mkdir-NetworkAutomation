@@ -1,5 +1,5 @@
 #define MyAppName "Network Automation"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.5.0"
 #define MyAppPublisher "Network Automation"
 #define MyAppExeName "NetworkAutomation.exe"
 
@@ -12,7 +12,7 @@ DefaultDirName={autopf}\NetworkAutomation
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 OutputDir=..\release
-OutputBaseFilename=NetworkAutomation_Setup_v1.0.0
+OutputBaseFilename=NetworkAutomation_Setup_v1.5.0
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern

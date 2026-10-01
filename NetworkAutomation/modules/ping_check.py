@@ -1,5 +1,6 @@
 import subprocess
 import platform
+import math
 import re
 import time
 from datetime import datetime
@@ -41,7 +42,7 @@ def ping_host(ip, timeout=1000):
 
         timeout_seconds = max(
             1,
-            int(timeout / 1000)
+            math.ceil(timeout / 1000)
         )
 
         command = [
@@ -64,6 +65,7 @@ def ping_host(ip, timeout=1000):
             text=True,
             encoding="utf-8",
             errors="ignore",
+            timeout=max(1, timeout / 1000) + 2,
             **hidden_subprocess_kwargs()
         )
 

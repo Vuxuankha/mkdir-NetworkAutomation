@@ -1,3 +1,4 @@
+from modules.ui_theme import PALETTE as UI_COLORS
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from datetime import datetime
@@ -90,6 +91,8 @@ class NetworkAutomationApp:
     def __init__(self, root, session_user=None):
 
         self.root = root
+        self._closing = False
+        self.exit_reason = 'close'
         self.session_user = session_user or {"username": "local-admin", "role": "Admin", "bootstrap": True}
         self.current_role = self.session_user.get("role", "Viewer")
         # Khởi tạo/migrate toàn bộ schema trước khi bất kỳ màn hình nào đọc dữ liệu.
@@ -114,7 +117,7 @@ class NetworkAutomationApp:
         )
 
         self.root.minsize(
-            980,
+            800,
             600
         )
 
@@ -202,44 +205,8 @@ class NetworkAutomationApp:
     # ======================================================
 
     def setup_style(self):
-
-        style = ttk.Style()
-
-        try:
-
-            style.theme_use(
-                "clam"
-            )
-
-        except Exception:
-
-            pass
-
-        style.configure(
-            "Treeview",
-            rowheight=28,
-            font=(
-                "Segoe UI",
-                10
-            )
-        )
-
-        style.configure(
-            "Treeview.Heading",
-            font=(
-                "Segoe UI",
-                10,
-                "bold"
-            )
-        )
-
-        style.configure(
-            "TButton",
-            font=(
-                "Segoe UI",
-                10
-            )
-        )
+        from modules.ui_theme import apply_theme
+        apply_theme(self.root)
 
     # ======================================================
     # LAYOUT
@@ -247,9 +214,26 @@ class NetworkAutomationApp:
 
     def create_layout(self):
 
+        from modules.responsive_layout import SidebarPolicy
+        self.sidebar_policy=SidebarPolicy()
+        self.topbar=tk.Frame(self.root,bg='#151F2B',height=48)
+        self.topbar.pack(side='top',fill='x')
+        tk.Button(self.topbar,text='☰ Menu',command=self.toggle_sidebar,bg='#151F2B',fg='#E8F0F6',relief='flat',padx=14,pady=10).grid(row=0,column=0,sticky='w')
+        self.topbar_title=tk.StringVar(value='Network Automation')
+        tk.Label(self.topbar,textvariable=self.topbar_title,bg='#151F2B',fg='#E8F0F6',font=('Segoe UI',11,'bold'),anchor='w',width=1).grid(row=0,column=1,sticky='ew',padx=10)
+        from modules.account_ui import AccountHeader
+        self.account_header = AccountHeader(self.topbar, self.session_user, [
+            ('Hồ sơ cá nhân', self.open_profile),
+            ('Đổi mật khẩu', self.open_password),
+            ('Nhật ký hoạt động', self.show_audit_log),
+            ('Đăng xuất', self.logout),
+        ])
+        self.account_header.frame.grid(row=0,column=2,sticky='e')
+        self.topbar.columnconfigure(1,weight=1)
+
         self.sidebar = tk.Frame(
             self.root,
-            bg="#111827",
+            bg=UI_COLORS['sidebar'],
             width=230
         )
 
@@ -264,7 +248,7 @@ class NetworkAutomationApp:
 
         self.content = tk.Frame(
             self.root,
-            bg="#F3F4F6"
+            bg=UI_COLORS['background']
         )
 
         self.content.pack(
@@ -274,10 +258,28 @@ class NetworkAutomationApp:
         )
 
         self.create_sidebar()
+        self.root.bind("<Configure>",self.resize_shell,add="+")
+        self.root.after_idle(lambda:self.resize_shell(None))
 
     # ======================================================
     # SIDEBAR
     # ======================================================
+
+    def apply_sidebar_visibility(self):
+        if self.sidebar_policy.visible:
+            self.sidebar.pack(side='left',fill='y',before=self.content)
+        else:
+            self.sidebar.pack_forget()
+
+    def toggle_sidebar(self):
+        self.sidebar_policy.toggle();self.apply_sidebar_visibility()
+
+    def resize_shell(self,event):
+        if self._closing:return
+        if event is not None and event.widget is not self.root:return
+        self.sidebar_policy.resize(self.root.winfo_width());self.apply_sidebar_visibility()
+        if hasattr(self,'account_header'):
+            self.account_header.render(compact=self.root.winfo_width()<1100)
 
     def create_sidebar(self):
 
@@ -285,24 +287,25 @@ class NetworkAutomationApp:
         title = tk.Label(
             self.sidebar,
             text=f"NETWORK\nAUTOMATION\n\n{self.session_user.get('username','')} • {self.current_role}",
-            bg="#111827",
-            fg="white",
+            bg=UI_COLORS['sidebar'],
+            fg=UI_COLORS['text'],
             font=("Segoe UI", 16, "bold"),
             justify="left"
         )
         title.pack(padx=20, pady=(20, 12), anchor="w")
+        self.sidebar_title = title
 
         # Menu có thanh cuộn để vẫn dùng được trên màn hình thấp.
-        menu_area = tk.Frame(self.sidebar, bg="#111827")
+        menu_area = tk.Frame(self.sidebar, bg=UI_COLORS['sidebar'])
         menu_area.pack(fill="both", expand=True)
 
         self.sidebar_canvas = tk.Canvas(
-            menu_area, bg="#111827", highlightthickness=0, bd=0
+            menu_area, bg=UI_COLORS['sidebar'], highlightthickness=0, bd=0
         )
         sidebar_scroll = tk.Scrollbar(
             menu_area, orient="vertical", command=self.sidebar_canvas.yview
         )
-        self.sidebar_menu = tk.Frame(self.sidebar_canvas, bg="#111827")
+        self.sidebar_menu = tk.Frame(self.sidebar_canvas, bg=UI_COLORS['sidebar'])
         self.sidebar_menu.bind(
             "<Configure>",
             lambda e: self.sidebar_canvas.configure(
@@ -337,6 +340,7 @@ class NetworkAutomationApp:
             ("GIÁM SÁT", [
                 ("Giám sát thiết bị", self.show_monitoring_hub),
                 ("Application / Server", self.show_server_monitor),
+                ("Wi-Fi / Camera", self.show_extensions),
                 ("Sức khỏe mạng", self.show_network_health),
                 ("SLA & Độ sẵn sàng", self.show_sla_availability),
             ]),
@@ -352,6 +356,7 @@ class NetworkAutomationApp:
             ]),
             ("QUẢN TRỊ", [
                 ("Trung tâm quản trị", self.show_admin_hub),
+                ("Quản lý tài khoản", self.show_user_roles),
                 ("Notification Center", self.show_notifications),
                 ("Cài đặt", self.show_settings),
             ]),
@@ -367,11 +372,12 @@ class NetworkAutomationApp:
             menu_groups = [(g, [(t, c) for t, c in items if t in allowed]) for g, items in menu_groups]
             menu_groups = [(g, items) for g, items in menu_groups if items]
         elif self.current_role == "Operator":
-            blocked = {"Trung tâm quản trị", "Cài đặt"}
+            blocked = {"Trung tâm quản trị", "Quản lý tài khoản", "Cài đặt"}
             menu_groups = [(g, [(t, c) for t, c in items if t not in blocked]) for g, items in menu_groups]
             menu_groups = [(g, items) for g, items in menu_groups if items]
 
         self.sidebar_groups = {}
+        self.nav_buttons = {}
 
         def toggle_group(group_name):
             info = self.sidebar_groups[group_name]
@@ -391,10 +397,10 @@ class NetworkAutomationApp:
             header = tk.Button(
                 self.sidebar_menu,
                 text=f"▾  {group_name}",
-                bg="#0B1220",
-                fg="#93C5FD",
+                bg=UI_COLORS['sidebar'],
+                fg=UI_COLORS['accent'],
                 activebackground="#172033",
-                activeforeground="white",
+                activeforeground=UI_COLORS['text'],
                 relief="flat",
                 bd=0,
                 anchor="w",
@@ -405,7 +411,7 @@ class NetworkAutomationApp:
             )
             header.pack(fill="x", pady=(4, 0))
 
-            group_frame = tk.Frame(self.sidebar_menu, bg="#111827")
+            group_frame = tk.Frame(self.sidebar_menu, bg=UI_COLORS['sidebar'])
             group_frame.pack(fill="x")
 
             self.sidebar_groups[group_name] = {
@@ -419,11 +425,11 @@ class NetworkAutomationApp:
                 button = tk.Button(
                     group_frame,
                     text=text,
-                    command=command,
-                    bg="#111827",
-                    fg="#D1D5DB",
+                    command=lambda title=text,action=command:self.navigate(title,action),
+                    bg=UI_COLORS['sidebar'],
+                    fg=UI_COLORS['text'],
                     activebackground="#1F2937",
-                    activeforeground="white",
+                    activeforeground=UI_COLORS['text'],
                     relief="flat",
                     bd=0,
                     anchor="w",
@@ -432,11 +438,19 @@ class NetworkAutomationApp:
                     font=("Segoe UI", 9),
                     cursor="hand2",
                 )
-                button.pack(fill="x")
+                button.pack(fill="x",padx=8,pady=2)
+                self.nav_buttons[text]=button
 
     # ======================================================
     # COMMON
     # ======================================================
+
+    def navigate(self,title,action):
+        for label,button in getattr(self,'nav_buttons',{}).items():
+            button.configure(bg="#593354" if label==title else UI_COLORS['sidebar'],fg=UI_COLORS['text'])
+        action()
+        if self.sidebar_policy.compact:
+            self.sidebar_policy.visible=False;self.apply_sidebar_visibility()
 
     def clear_content(self):
 
@@ -464,6 +478,9 @@ class NetworkAutomationApp:
 
             self.stop_scan()
 
+        from modules.responsive_layout import cancel_page_timers
+        cancel_page_timers(self.content)
+
         for widget in self.content.winfo_children():
 
             widget.destroy()
@@ -474,9 +491,12 @@ class NetworkAutomationApp:
         subtitle=""
     ):
 
+        self.content.configure(bg=UI_COLORS['background'])
+        if hasattr(self,'topbar_title'):self.topbar_title.set(title)
+
         header = tk.Frame(
             self.content,
-            bg="#F3F4F6"
+            bg=UI_COLORS['background']
         )
 
         header.pack(
@@ -485,37 +505,43 @@ class NetworkAutomationApp:
             pady=(20, 10)
         )
 
-        tk.Label(
+        title_label=tk.Label(
             header,
             text=title,
-            bg="#F3F4F6",
-            fg="#111827",
+            wraplength=700,
+            justify="left",
+            bg=UI_COLORS['background'],
+            fg=UI_COLORS['text'],
             font=(
                 "Segoe UI",
                 22,
                 "bold"
             )
-        ).pack(
-            anchor="w"
         )
+        title_label.pack(anchor="w")
+        header.bind("<Configure>",lambda event:title_label.configure(wraplength=max(250,event.width)),add="+")
 
         if subtitle:
 
-            tk.Label(
+            subtitle_label=tk.Label(
                 header,
                 text=subtitle,
-                bg="#F3F4F6",
-                fg="#6B7280",
+                wraplength=700,
+                justify="left",
+                bg=UI_COLORS['background'],
+                fg=UI_COLORS['muted'],
                 font=(
                     "Segoe UI",
                     10
                 )
-            ).pack(
-                anchor="w",
-                pady=(3, 0)
             )
+            subtitle_label.pack(anchor="w",pady=(3,0))
+            header.bind("<Configure>",lambda event:subtitle_label.configure(wraplength=max(250,event.width)),add="+")
 
     def add_activity(self, message):
+
+        if self._closing:
+            return
 
         time_text = datetime.now().strftime(
             "%H:%M:%S"
@@ -539,18 +565,18 @@ class NetworkAutomationApp:
         self.clear_content()
         self.set_page_title(title, subtitle)
 
-        wrap = tk.Frame(self.content, bg="#F3F4F6")
+        wrap = tk.Frame(self.content, bg=UI_COLORS['background'])
         wrap.pack(fill="both", expand=True, padx=25, pady=(4, 20))
 
         tk.Label(
             wrap,
             text="Chọn công cụ cần sử dụng",
-            bg="#F3F4F6",
-            fg="#6B7280",
+            bg=UI_COLORS['background'],
+            fg=UI_COLORS['muted'],
             font=("Segoe UI", 10),
         ).pack(anchor="w", pady=(0, 10))
 
-        grid = tk.Frame(wrap, bg="#F3F4F6")
+        grid = tk.Frame(wrap, bg=UI_COLORS['background'])
         grid.pack(fill="both", expand=True)
 
         visible = []
@@ -564,11 +590,11 @@ class NetworkAutomationApp:
         for i, (label, desc, command) in enumerate(visible):
             row, col = divmod(i, columns)
             grid.grid_columnconfigure(col, weight=1, uniform="hub")
-            card = tk.Frame(grid, bg="white", bd=1, relief="solid", cursor="hand2")
+            card = tk.Frame(grid, bg=UI_COLORS['surface'], bd=1, relief="solid", cursor="hand2")
             card.grid(row=row, column=col, sticky="nsew", padx=6, pady=6, ipadx=6, ipady=6)
-            tk.Label(card, text=label, bg="white", fg="#111827",
+            tk.Label(card, text=label, bg=UI_COLORS['surface'], fg=UI_COLORS['text'],
                      font=("Segoe UI", 12, "bold"), anchor="w").pack(fill="x", padx=14, pady=(12, 4))
-            tk.Label(card, text=desc, bg="white", fg="#6B7280",
+            tk.Label(card, text=desc, bg=UI_COLORS['surface'], fg=UI_COLORS['muted'],
                      font=("Segoe UI", 9), anchor="w", justify="left", wraplength=290).pack(fill="x", padx=14, pady=(0, 10))
             btn = ttk.Button(card, text="Mở", command=command)
             btn.pack(anchor="w", padx=14, pady=(0, 12))
@@ -608,6 +634,13 @@ class NetworkAutomationApp:
                 ("Dịch vụ & ảnh hưởng", "Xem mức ảnh hưởng của sự cố đến dịch vụ.", self.show_service_impact, None),
             ],
         )
+
+    def show_extensions(self):
+        from modules.extension_page import ExtensionPage
+        self.current_page = "Wi-Fi / Camera"
+        self.clear_content()
+        self.set_page_title("Wi-Fi / Camera", "Chẩn đoán và lịch sử giám sát nền")
+        ExtensionPage(self.content)
 
     def show_server_monitor(self):
         self.current_page = "Application / Server"
@@ -673,50 +706,15 @@ class NetworkAutomationApp:
     # ======================================================
 
     def show_dashboard(self):
-        """One-Click NOC home: input IP/Excel once, then run the existing safe audit pipeline."""
-        self.current_page = "Tổng quan"
+        """Dark NOC dashboard with the existing audited One-Click actions."""
+        from modules.dark_dashboard import DarkDashboard
+        self.current_page='Tổng quan'
         self.clear_content()
-        self.set_page_title("One-Click NOC", "Dán IP hoặc chọn Excel → kiểm tra toàn bộ → xuất Excel / gửi Gmail")
-
-        quick = tk.Frame(self.content, bg="white", bd=1, relief="solid")
-        quick.pack(fill="x", padx=25, pady=(16, 8))
-        tk.Label(quick, text="KIỂM TRA NHANH TOÀN BỘ", bg="white", fg="#111827",
-                 font=("Segoe UI", 14, "bold")).pack(anchor="w", padx=16, pady=(12, 2))
-        tk.Label(quick, text="Mỗi IP chỉ chạy các phép kiểm tra mà thiết bị/hồ sơ hỗ trợ; tác vụ thiếu SNMP/SSH sẽ SKIP thay vì làm hỏng cả lượt.",
-                 bg="white", fg="#6B7280", font=("Segoe UI", 9)).pack(anchor="w", padx=16, pady=(0, 8))
-
-        self.quick_ip_text = tk.Text(quick, height=4, font=("Consolas", 10), wrap="word")
-        self.quick_ip_text.pack(fill="x", padx=16)
-        self.quick_ip_text.insert("1.0", "")
-
-        actions = tk.Frame(quick, bg="white"); actions.pack(fill="x", padx=16, pady=8)
-        tk.Button(actions, text="Chọn Excel IP", command=self._quick_choose_excel, bg="#E5E7EB", relief="flat", padx=12, pady=7).pack(side="left")
-        self.quick_excel_path = ""
-        self.quick_email_var = tk.BooleanVar(value=True)
-        tk.Checkbutton(actions, text="Gửi Gmail/Email khi xong", variable=self.quick_email_var, bg="white").pack(side="left", padx=12)
-        self.quick_authorized_var = tk.BooleanVar(value=False)
-        tk.Checkbutton(actions, text="Tôi có quyền kiểm tra các IP này", variable=self.quick_authorized_var, bg="white").pack(side="left", padx=8)
-        self.quick_run_btn = tk.Button(actions, text="KIỂM TRA TOÀN BỘ", command=self._quick_run_all,
-                                       bg="#2563EB", fg="white", activebackground="#1D4ED8", activeforeground="white",
-                                       relief="flat", padx=18, pady=8, font=("Segoe UI", 10, "bold"))
-        self.quick_run_btn.pack(side="right")
-
-        self.quick_status_var = tk.StringVar(value="Sẵn sàng • Dán IP hoặc chọn file Excel")
-        tk.Label(quick, textvariable=self.quick_status_var, bg="white", fg="#1D4ED8", font=("Segoe UI", 9)).pack(anchor="w", padx=16, pady=(0, 4))
-        self.quick_progress = ttk.Progressbar(quick, mode="determinate")
-        self.quick_progress.pack(fill="x", padx=16, pady=(0, 12))
-
-        # Keep the operational overview directly below the one-click launcher.
-        overview = tk.Frame(self.content, bg="#F3F4F6")
-        overview.pack(fill="both", expand=True)
-        old_content = self.content
-        self.content = overview
-        try:
-            self._show_dashboard_legacy()
-        finally:
-            self.content = old_content
-            self.current_page = "Tổng quan"
-        self._quick_poll()
+        self.content.configure(bg='#0B131C')
+        if hasattr(self,'topbar_title'):self.topbar_title.set('Tổng quan NOC')
+        for name,widget in getattr(self,'nav_buttons',{}).items():
+            widget.configure(bg='#593354' if name=='Tổng quan' else UI_COLORS['sidebar'],fg=UI_COLORS['text'] if name=='Tổng quan' else UI_COLORS['text'])
+        self.dark_dashboard=DarkDashboard(self)
 
     def _quick_choose_excel(self):
         path = filedialog.askopenfilename(parent=self.root, title="Chọn file Excel IP", filetypes=[("Excel", "*.xlsx")])
@@ -768,7 +766,7 @@ class NetworkAutomationApp:
         except Exception as exc:
             messagebox.showerror("One-Click NOC", str(exc), parent=self.root)
 
-    def _quick_poll(self):
+    def _quick_poll(self,schedule=True):
         if self.current_page != "Tổng quan" or not hasattr(self, "quick_status_var"):
             return
         try:
@@ -785,7 +783,7 @@ class NetworkAutomationApp:
                 self.quick_run_btn.configure(state="disabled" if snap.get("running") else "normal")
         except Exception:
             pass
-        self.root.after(700, self._quick_poll)
+        if schedule:self.root.after(700, self._quick_poll)
 
     def _show_dashboard_legacy(self):
         """NOC-first dashboard: surface problems before navigation."""
@@ -815,7 +813,7 @@ class NetworkAutomationApp:
         except Exception:
             pass
 
-        top = tk.Frame(self.content, bg="#F3F4F6")
+        top = tk.Frame(self.content, bg=UI_COLORS['background'])
         top.pack(fill="x", padx=25, pady=(18, 8))
         cards = [
             ("Thiết bị", data["total"], "Tất cả thiết bị đang quản lý"),
@@ -825,28 +823,28 @@ class NetworkAutomationApp:
             ("Sự cố mở", data["incidents"], "Chưa xử lý xong"),
         ]
         for title, value, note in cards:
-            card = tk.Frame(top, bg="white", bd=1, relief="solid")
+            card = tk.Frame(top, bg=UI_COLORS['surface'], bd=1, relief="solid")
             card.pack(side="left", fill="both", expand=True, padx=4)
-            tk.Label(card, text=title, bg="white", fg="#6B7280", font=("Segoe UI", 9)).pack(anchor="w", padx=14, pady=(12, 2))
-            tk.Label(card, text=str(value), bg="white", fg="#111827", font=("Segoe UI", 22, "bold")).pack(anchor="w", padx=14)
-            tk.Label(card, text=note, bg="white", fg="#9CA3AF", font=("Segoe UI", 8)).pack(anchor="w", padx=14, pady=(0, 12))
+            tk.Label(card, text=title, bg=UI_COLORS['surface'], fg=UI_COLORS['muted'], font=("Segoe UI", 9)).pack(anchor="w", padx=14, pady=(12, 2))
+            tk.Label(card, text=str(value), bg=UI_COLORS['surface'], fg=UI_COLORS['text'], font=("Segoe UI", 22, "bold")).pack(anchor="w", padx=14)
+            tk.Label(card, text=note, bg=UI_COLORS['surface'], fg=UI_COLORS['muted'], font=("Segoe UI", 8)).pack(anchor="w", padx=14, pady=(0, 12))
 
         # Daily Audit is a first-class NOC signal.
         audit_status, audit_detail, _audit_file = self._daily_audit_dashboard_summary()
-        audit = tk.Frame(self.content, bg="white", bd=1, relief="solid")
+        audit = tk.Frame(self.content, bg=UI_COLORS['surface'], bd=1, relief="solid")
         audit.pack(fill="x", padx=29, pady=6)
-        al = tk.Frame(audit, bg="white"); al.pack(side="left", fill="x", expand=True, padx=14, pady=10)
-        tk.Label(al, text="Daily Audit Windows", bg="white", fg="#111827", font=("Segoe UI", 11, "bold")).pack(anchor="w")
-        tk.Label(al, text=f"{audit_status}  •  {audit_detail}", bg="white", fg="#6B7280", font=("Segoe UI", 9)).pack(anchor="w", pady=(2, 0))
+        al = tk.Frame(audit, bg=UI_COLORS['surface']); al.pack(side="left", fill="x", expand=True, padx=14, pady=10)
+        tk.Label(al, text="Daily Audit Windows", bg=UI_COLORS['surface'], fg=UI_COLORS['text'], font=("Segoe UI", 11, "bold")).pack(anchor="w")
+        tk.Label(al, text=f"{audit_status}  •  {audit_detail}", bg=UI_COLORS['surface'], fg=UI_COLORS['muted'], font=("Segoe UI", 9)).pack(anchor="w", pady=(2, 0))
         ttk.Button(audit, text="Chạy / Chi tiết", command=self.show_daily_audit).pack(side="right", padx=14, pady=10)
         ttk.Button(audit, text="Trung tâm NOC", command=self.show_noc_dashboard).pack(side="right", pady=10)
 
-        body = tk.Frame(self.content, bg="#F3F4F6")
+        body = tk.Frame(self.content, bg=UI_COLORS['background'])
         body.pack(fill="both", expand=True, padx=25, pady=(4, 16))
-        left = tk.Frame(body, bg="white", bd=1, relief="solid"); left.pack(side="left", fill="both", expand=True, padx=4)
-        right = tk.Frame(body, bg="white", bd=1, relief="solid"); right.pack(side="left", fill="both", expand=True, padx=4)
+        left = tk.Frame(body, bg=UI_COLORS['surface'], bd=1, relief="solid"); left.pack(side="left", fill="both", expand=True, padx=4)
+        right = tk.Frame(body, bg=UI_COLORS['surface'], bd=1, relief="solid"); right.pack(side="left", fill="both", expand=True, padx=4)
 
-        tk.Label(left, text="Cần chú ý", bg="white", fg="#111827", font=("Segoe UI", 12, "bold")).pack(anchor="w", padx=12, pady=(10, 6))
+        tk.Label(left, text="Cần chú ý", bg=UI_COLORS['surface'], fg=UI_COLORS['text'], font=("Segoe UI", 12, "bold")).pack(anchor="w", padx=12, pady=(10, 6))
         attention = ttk.Treeview(left, columns=("kind","target","detail"), show="headings", height=10)
         for c,t,w in (("kind","Loại",100),("target","Thiết bị / IP",145),("detail","Chi tiết",330)):
             attention.heading(c,text=t); attention.column(c,width=w,anchor="w")
@@ -857,7 +855,7 @@ class NetworkAutomationApp:
             attention.insert("","end",values=(r[1] or "Cảnh báo",r[2] or "-",(r[4] or r[3] or "")[:80]))
         if not attention.get_children(): attention.insert("","end",values=("OK","-","Không có mục bất thường đang hiển thị"))
 
-        tk.Label(right, text="Sự cố & cảnh báo gần đây", bg="white", fg="#111827", font=("Segoe UI", 12, "bold")).pack(anchor="w", padx=12, pady=(10, 6))
+        tk.Label(right, text="Sự cố & cảnh báo gần đây", bg=UI_COLORS['surface'], fg=UI_COLORS['text'], font=("Segoe UI", 12, "bold")).pack(anchor="w", padx=12, pady=(10, 6))
         events = ttk.Treeview(right, columns=("time","level","target","detail"), show="headings", height=10)
         for c,t,w in (("time","Thời gian",125),("level","Mức",75),("target","Đích",110),("detail","Nội dung",300)):
             events.heading(c,text=t); events.column(c,width=w,anchor="w")
@@ -885,7 +883,7 @@ class NetworkAutomationApp:
 
         control = tk.Frame(
             self.content,
-            bg="white",
+            bg=UI_COLORS['surface'],
             bd=1,
             relief="solid"
         )
@@ -899,8 +897,8 @@ class NetworkAutomationApp:
         tk.Label(
             control,
             text="Mạng:",
-            bg="white",
-            fg="#374151",
+            bg=UI_COLORS['surface'],
+            fg=UI_COLORS['text'],
             font=(
                 "Segoe UI",
                 10,
@@ -931,14 +929,18 @@ class NetworkAutomationApp:
             pady=18
         )
 
+        self.scan_dns_var = tk.BooleanVar(value=True)
+        tk.Checkbutton(control, text="Tra hostname", variable=self.scan_dns_var,
+                       bg=UI_COLORS['surface']).pack(side="left", padx=8)
+
         self.scan_button = tk.Button(
             control,
             text="Quét mạng",
             command=self.start_scan,
-            bg="#2563EB",
-            fg="white",
-            activebackground="#1D4ED8",
-            activeforeground="white",
+            bg=UI_COLORS['primary'],
+            fg=UI_COLORS['text'],
+            activebackground=UI_COLORS['hover'],
+            activeforeground=UI_COLORS['text'],
             relief="flat",
             bd=0,
             padx=18,
@@ -960,10 +962,10 @@ class NetworkAutomationApp:
             control,
             text="Dừng quét",
             command=self.stop_scan,
-            bg="#DC2626",
-            fg="white",
-            activebackground="#B91C1C",
-            activeforeground="white",
+            bg=UI_COLORS['danger_bg'],
+            fg=UI_COLORS['text'],
+            activebackground=UI_COLORS['danger_bg'],
+            activeforeground=UI_COLORS['text'],
             relief="flat",
             bd=0,
             padx=18,
@@ -985,8 +987,8 @@ class NetworkAutomationApp:
         self.scan_status_label = tk.Label(
             control,
             text="Sẵn sàng",
-            bg="white",
-            fg="#6B7280",
+            bg=UI_COLORS['surface'],
+            fg=UI_COLORS['muted'],
             font=(
                 "Segoe UI",
                 10
@@ -998,9 +1000,18 @@ class NetworkAutomationApp:
             padx=15
         )
 
+        # Wrap scan controls using their requested widths at the current DPI.
+        from modules.responsive_layout import FlowRow
+        scan_controls=[widget for widget in control.winfo_children() if widget is not self.scan_status_label]
+        for widget in control.winfo_children():widget.pack_forget()
+        scan_toolbar=ttk.Frame(control,padding=10);scan_toolbar.pack(fill='x')
+        FlowRow(scan_toolbar,scan_controls)
+        self.scan_status_label.pack(fill='x',padx=12,pady=(0,8))
+        control.bind('<Configure>',lambda event:self.scan_status_label.configure(wraplength=max(200,event.width-24)),add='+')
+
         progress_frame = tk.Frame(
             self.content,
-            bg="white",
+            bg=UI_COLORS['surface'],
             bd=1,
             relief="solid"
         )
@@ -1014,8 +1025,8 @@ class NetworkAutomationApp:
         tk.Label(
             progress_frame,
             text="Đang kiểm tra:",
-            bg="white",
-            fg="#6B7280",
+            bg=UI_COLORS['surface'],
+            fg=UI_COLORS['muted'],
             font=(
                 "Segoe UI",
                 10
@@ -1029,8 +1040,8 @@ class NetworkAutomationApp:
         self.scan_current_ip_label = tk.Label(
             progress_frame,
             text="-",
-            bg="white",
-            fg="#2563EB",
+            bg=UI_COLORS['surface'],
+            fg=UI_COLORS['accent'],
             font=(
                 "Consolas",
                 11,
@@ -1046,8 +1057,8 @@ class NetworkAutomationApp:
         self.scan_progress_label = tk.Label(
             progress_frame,
             text="0 / 0",
-            bg="white",
-            fg="#111827",
+            bg=UI_COLORS['surface'],
+            fg=UI_COLORS['text'],
             font=(
                 "Segoe UI",
                 10,
@@ -1063,8 +1074,8 @@ class NetworkAutomationApp:
         self.scan_percent_label = tk.Label(
             progress_frame,
             text="0%",
-            bg="white",
-            fg="#16A34A",
+            bg=UI_COLORS['surface'],
+            fg=UI_COLORS['success'],
             font=(
                 "Segoe UI",
                 10,
@@ -1080,8 +1091,8 @@ class NetworkAutomationApp:
         self.scan_active_label = tk.Label(
             progress_frame,
             text="Running: 0",
-            bg="white",
-            fg="#7C3AED",
+            bg=UI_COLORS['surface'],
+            fg=UI_COLORS['pink'],
             font=(
                 "Segoe UI",
                 10,
@@ -1097,8 +1108,8 @@ class NetworkAutomationApp:
         self.scan_ip_timer_label = tk.Label(
             progress_frame,
             text="IP Time: 0.00 s",
-            bg="white",
-            fg="#D97706",
+            bg=UI_COLORS['surface'],
+            fg=UI_COLORS['warning'],
             font=(
                 "Consolas",
                 10,
@@ -1114,8 +1125,8 @@ class NetworkAutomationApp:
         self.scan_total_timer_label = tk.Label(
             progress_frame,
             text="Total: 0.00 s",
-            bg="white",
-            fg="#374151",
+            bg=UI_COLORS['surface'],
+            fg=UI_COLORS['text'],
             font=(
                 "Consolas",
                 10
@@ -1141,9 +1152,15 @@ class NetworkAutomationApp:
             pady=15
         )
 
+        progress_items=[widget for widget in progress_frame.winfo_children() if widget is not self.scan_progress]
+        for widget in progress_frame.winfo_children():widget.pack_forget()
+        progress_toolbar=ttk.Frame(progress_frame,padding=8);progress_toolbar.pack(fill='x')
+        FlowRow(progress_toolbar,progress_items)
+        self.scan_progress.pack(fill='x',padx=12,pady=(0,10))
+
         filter_frame = tk.Frame(
             self.content,
-            bg="white",
+            bg=UI_COLORS['surface'],
             bd=1,
             relief="solid"
         )
@@ -1157,8 +1174,8 @@ class NetworkAutomationApp:
         tk.Label(
             filter_frame,
             text="Tìm kiếm:",
-            bg="white",
-            fg="#374151",
+            bg=UI_COLORS['surface'],
+            fg=UI_COLORS['text'],
             font=(
                 "Segoe UI",
                 10,
@@ -1195,8 +1212,8 @@ class NetworkAutomationApp:
         tk.Label(
             filter_frame,
             text="Trạng thái:",
-            bg="white",
-            fg="#374151",
+            bg=UI_COLORS['surface'],
+            fg=UI_COLORS['text'],
             font=(
                 "Segoe UI",
                 10,
@@ -1235,8 +1252,8 @@ class NetworkAutomationApp:
         tk.Label(
             filter_frame,
             text="Sắp xếp:",
-            bg="white",
-            fg="#374151",
+            bg=UI_COLORS['surface'],
+            fg=UI_COLORS['text'],
             font=(
                 "Segoe UI",
                 10,
@@ -1277,8 +1294,8 @@ class NetworkAutomationApp:
         self.scan_summary_label = tk.Label(
             filter_frame,
             text="Total: 0 | Online: 0 | Offline: 0 | Showing: 0",
-            bg="white",
-            fg="#374151",
+            bg=UI_COLORS['surface'],
+            fg=UI_COLORS['text'],
             font=(
                 "Segoe UI",
                 10,
@@ -1291,9 +1308,16 @@ class NetworkAutomationApp:
             padx=20
         )
 
+        filter_items=[widget for widget in filter_frame.winfo_children() if widget is not self.scan_summary_label]
+        for widget in filter_frame.winfo_children():widget.pack_forget()
+        filter_toolbar=ttk.Frame(filter_frame,padding=8);filter_toolbar.pack(fill='x')
+        FlowRow(filter_toolbar,filter_items)
+        self.scan_summary_label.pack(fill='x',padx=12,pady=(0,8))
+        filter_frame.bind('<Configure>',lambda event:self.scan_summary_label.configure(wraplength=max(200,event.width-24)),add='+')
+
         result_frame = tk.Frame(
             self.content,
-            bg="white",
+            bg=UI_COLORS['surface'],
             bd=1,
             relief="solid"
         )
@@ -1400,41 +1424,24 @@ class NetworkAutomationApp:
             xscrollcommand=scrollbar_x.set
         )
 
-        self.scan_table.pack(
-            side="top",
-            fill="both",
-            expand=True,
-            padx=(15, 0),
-            pady=(15, 0)
-        )
-
-        scrollbar_y.pack(
-            side="right",
-            fill="y",
-            padx=(0, 15),
-            pady=(15, 0)
-        )
-
-        scrollbar_x.pack(
-            side="bottom",
-            fill="x",
-            padx=(15, 15),
-            pady=(0, 15)
-        )
+        result_frame.rowconfigure(0,weight=1);result_frame.columnconfigure(0,weight=1)
+        self.scan_table.grid(row=0,column=0,sticky='nsew',padx=(12,0),pady=(12,0))
+        scrollbar_y.grid(row=0,column=1,sticky='ns',padx=(0,12),pady=(12,0))
+        scrollbar_x.grid(row=1,column=0,sticky='ew',padx=(12,0),pady=(0,12))
 
         self.scan_table.tag_configure(
             "online",
-            foreground="#16A34A"
+            foreground=UI_COLORS['success']
         )
 
         self.scan_table.tag_configure(
             "offline",
-            foreground="#DC2626"
+            foreground=UI_COLORS['danger']
         )
 
         self.scan_table.tag_configure(
             "running",
-            foreground="#2563EB"
+            foreground=UI_COLORS['accent']
         )
 
     # ======================================================
@@ -1851,7 +1858,8 @@ class NetworkAutomationApp:
             target=self.scan_worker,
             args=(
                 network,
-                self.scan_stop_event
+                self.scan_stop_event,
+                self.scan_dns_var.get()
             ),
             daemon=True
         )
@@ -1865,7 +1873,8 @@ class NetworkAutomationApp:
     def scan_worker(
         self,
         network,
-        stop_event
+        stop_event,
+        resolve_hostnames=True
     ):
 
         try:
@@ -1873,8 +1882,10 @@ class NetworkAutomationApp:
             results = scan_network(
                 network,
                 max_workers=50,
-                timeout=1,
+                timeout=1000,
                 stop_event=stop_event,
+                resolve_hostnames=resolve_hostnames,
+                dns_timeout=1.0,
                 callback=self.scan_callback
             )
 
@@ -1882,20 +1893,13 @@ class NetworkAutomationApp:
                 stop_event.is_set()
             )
 
-            self.root.after(
-                0,
-                self.scan_finished,
-                stopped,
-                results
-            )
+            if not self._closing:
+                self.root.after(0, self.scan_finished, stopped, results)
 
         except Exception as error:
 
-            self.root.after(
-                0,
-                self.scan_error,
-                str(error)
-            )
+            if not self._closing:
+                self.root.after(0, self.scan_error, str(error))
 
     # ======================================================
     # SCAN CALLBACK
@@ -1906,6 +1910,8 @@ class NetworkAutomationApp:
         event
     ):
 
+        if self._closing:
+            return
         event_type = event.get(
             "event"
         )
@@ -2434,7 +2440,7 @@ class NetworkAutomationApp:
 
         toolbar = tk.Frame(
             self.content,
-            bg="white",
+            bg=UI_COLORS['surface'],
             bd=1,
             relief="solid"
         )
@@ -2448,8 +2454,8 @@ class NetworkAutomationApp:
         tk.Label(
             toolbar,
             text="Tìm kiếm:",
-            bg="white",
-            fg="#374151",
+            bg=UI_COLORS['surface'],
+            fg=UI_COLORS['text'],
             font=(
                 "Segoe UI",
                 10,
@@ -2487,8 +2493,8 @@ class NetworkAutomationApp:
         tk.Label(
             toolbar,
             text="Trạng thái:",
-            bg="white",
-            fg="#374151",
+            bg=UI_COLORS['surface'],
+            fg=UI_COLORS['text'],
             font=(
                 "Segoe UI",
                 10,
@@ -2528,10 +2534,10 @@ class NetworkAutomationApp:
             toolbar,
             text="Làm mới",
             command=self.refresh_device_manager,
-            bg="#2563EB",
-            fg="white",
-            activebackground="#1D4ED8",
-            activeforeground="white",
+            bg=UI_COLORS['primary'],
+            fg=UI_COLORS['text'],
+            activebackground=UI_COLORS['hover'],
+            activeforeground=UI_COLORS['text'],
             relief="flat",
             bd=0,
             padx=15,
@@ -2554,10 +2560,10 @@ class NetworkAutomationApp:
             toolbar,
             text="Xuất Excel",
             command=self.export_devices_excel,
-            bg="#059669",
-            fg="white",
-            activebackground="#047857",
-            activeforeground="white",
+            bg=UI_COLORS['success_bg'],
+            fg=UI_COLORS['text'],
+            activebackground=UI_COLORS['success_bg'],
+            activeforeground=UI_COLORS['text'],
             relief="flat",
             bd=0,
             padx=15,
@@ -2578,10 +2584,10 @@ class NetworkAutomationApp:
             toolbar,
             text="Thêm thiết bị",
             command=self.add_device_dialog,
-            bg="#16A34A",
-            fg="white",
-            activebackground="#15803D",
-            activeforeground="white",
+            bg=UI_COLORS['success_bg'],
+            fg=UI_COLORS['text'],
+            activebackground=UI_COLORS['success_bg'],
+            activeforeground=UI_COLORS['text'],
             relief="flat",
             bd=0,
             padx=15,
@@ -2601,7 +2607,7 @@ class NetworkAutomationApp:
 
         summary_frame = tk.Frame(
             self.content,
-            bg="white",
+            bg=UI_COLORS['surface'],
             bd=1,
             relief="solid"
         )
@@ -2615,8 +2621,8 @@ class NetworkAutomationApp:
         self.device_summary_label = tk.Label(
             summary_frame,
             text="Total: 0 | Online: 0 | Offline: 0 | Showing: 0",
-            bg="white",
-            fg="#374151",
+            bg=UI_COLORS['surface'],
+            fg=UI_COLORS['text'],
             font=(
                 "Segoe UI",
                 10,
@@ -2632,7 +2638,7 @@ class NetworkAutomationApp:
 
         result_frame = tk.Frame(
             self.content,
-            bg="white",
+            bg=UI_COLORS['surface'],
             bd=1,
             relief="solid"
         )
@@ -2786,17 +2792,17 @@ class NetworkAutomationApp:
 
         self.device_table.tag_configure(
             "online",
-            foreground="#16A34A"
+            foreground=UI_COLORS['success']
         )
 
         self.device_table.tag_configure(
             "offline",
-            foreground="#DC2626"
+            foreground=UI_COLORS['danger']
         )
 
         self.device_table.tag_configure(
             "unknown",
-            foreground="#6B7280"
+            foreground=UI_COLORS['muted']
         )
 
         self.device_table.bind(
@@ -2806,7 +2812,7 @@ class NetworkAutomationApp:
 
         button_frame = tk.Frame(
             self.content,
-            bg="#F3F4F6"
+            bg=UI_COLORS['background']
         )
 
         button_frame.pack(
@@ -2819,10 +2825,10 @@ class NetworkAutomationApp:
             button_frame,
             text="Sửa thiết bị",
             command=self.edit_selected_device,
-            bg="#2563EB",
-            fg="white",
-            activebackground="#1D4ED8",
-            activeforeground="white",
+            bg=UI_COLORS['primary'],
+            fg=UI_COLORS['text'],
+            activebackground=UI_COLORS['hover'],
+            activeforeground=UI_COLORS['text'],
             relief="flat",
             bd=0,
             padx=18,
@@ -2843,10 +2849,10 @@ class NetworkAutomationApp:
             button_frame,
             text="Xóa mục đã chọn",
             command=self.delete_selected_devices,
-            bg="#DC2626",
-            fg="white",
-            activebackground="#B91C1C",
-            activeforeground="white",
+            bg=UI_COLORS['danger_bg'],
+            fg=UI_COLORS['text'],
+            activebackground=UI_COLORS['danger_bg'],
+            activeforeground=UI_COLORS['text'],
             relief="flat",
             bd=0,
             padx=18,
@@ -2868,10 +2874,10 @@ class NetworkAutomationApp:
             button_frame,
             text="Chọn tất cả",
             command=self.select_all_devices,
-            bg="#4B5563",
-            fg="white",
-            activebackground="#374151",
-            activeforeground="white",
+            bg=UI_COLORS['surface_alt'],
+            fg=UI_COLORS['text'],
+            activebackground=UI_COLORS['surface_alt'],
+            activeforeground=UI_COLORS['text'],
             relief="flat",
             bd=0,
             padx=15,
@@ -2892,10 +2898,10 @@ class NetworkAutomationApp:
             button_frame,
             text="Bỏ chọn",
             command=self.deselect_all_devices,
-            bg="#6B7280",
-            fg="white",
-            activebackground="#4B5563",
-            activeforeground="white",
+            bg=UI_COLORS['surface_alt'],
+            fg=UI_COLORS['text'],
+            activebackground=UI_COLORS['surface_alt'],
+            activeforeground=UI_COLORS['text'],
             relief="flat",
             bd=0,
             padx=15,
@@ -2910,10 +2916,10 @@ class NetworkAutomationApp:
                     button_frame,
                     text="Bỏ chọn",
                     command=self.deselect_all_devices,
-                    bg="#6B7280",
-                    fg="white",
-                    activebackground="#4B5563",
-                    activeforeground="white",
+                    bg=UI_COLORS['surface_alt'],
+                    fg=UI_COLORS['text'],
+                    activebackground=UI_COLORS['surface_alt'],
+                    activeforeground=UI_COLORS['text'],
                     relief="flat",
                     bd=0,
                     padx=15,
@@ -3195,300 +3201,11 @@ class NetworkAutomationApp:
     # ======================================================
 
     def add_device_dialog(self):
-
-        dialog = tk.Toplevel(
-            self.root
-        )
-
-        dialog.title(
-            "Thêm thiết bị"
-        )
-
-        dialog.geometry(
-            "450x400"
-        )
-
-        dialog.resizable(
-            False,
-            False
-        )
-
-        dialog.transient(
-            self.root
-        )
-
-        dialog.grab_set()
-
-        frame = tk.Frame(
-            dialog,
-            bg="#F3F4F6"
-        )
-
-        frame.pack(
-            fill="both",
-            expand=True
-        )
-
-        title = tk.Label(
-            frame,
-            text="Thêm thiết bị mới",
-            bg="#F3F4F6",
-            fg="#111827",
-            font=(
-                "Segoe UI",
-                18,
-                "bold"
-            )
-        )
-
-        title.pack(
-            pady=(25, 20)
-        )
-
-        form = tk.Frame(
-            frame,
-            bg="white",
-            bd=1,
-            relief="solid"
-        )
-
-        form.pack(
-            fill="x",
-            padx=25
-        )
-
-        tk.Label(
-            form,
-            text="IP Address *",
-            bg="white",
-            fg="#374151"
-        ).grid(
-            row=0,
-            column=0,
-            sticky="w",
-            padx=15,
-            pady=(20, 5)
-        )
-
-        ip_entry = tk.Entry(
-            form,
-            width=35
-        )
-
-        ip_entry.grid(
-            row=1,
-            column=0,
-            padx=15,
-            pady=(0, 10)
-        )
-
-        tk.Label(
-            form,
-            text="Tên máy",
-            bg="white",
-            fg="#374151"
-        ).grid(
-            row=2,
-            column=0,
-            sticky="w",
-            padx=15,
-            pady=(5, 5)
-        )
-
-        hostname_entry = tk.Entry(
-            form,
-            width=35
-        )
-
-        hostname_entry.grid(
-            row=3,
-            column=0,
-            padx=15,
-            pady=(0, 10)
-        )
-
-        tk.Label(
-            form,
-            text="Địa chỉ MAC",
-            bg="white",
-            fg="#374151"
-        ).grid(
-            row=4,
-            column=0,
-            sticky="w",
-            padx=15,
-            pady=(5, 5)
-        )
-
-        mac_entry = tk.Entry(
-            form,
-            width=35
-        )
-
-        mac_entry.grid(
-            row=5,
-            column=0,
-            padx=15,
-            pady=(0, 10)
-        )
-
-        tk.Label(
-            form,
-            text="Trạng thái",
-            bg="white",
-            fg="#374151"
-        ).grid(
-            row=6,
-            column=0,
-            sticky="w",
-            padx=15,
-            pady=(5, 5)
-        )
-
-        status_var = tk.StringVar(
-            value="Online"
-        )
-
-        status_combo = ttk.Combobox(
-            form,
-            textvariable=status_var,
-            values=(
-                "Online",
-                "Offline",
-                "Unknown"
-            ),
-            width=32,
-            state="readonly"
-        )
-
-        status_combo.grid(
-            row=7,
-            column=0,
-            padx=15,
-            pady=(0, 20)
-        )
-
-        button_frame = tk.Frame(
-            frame,
-            bg="#F3F4F6"
-        )
-
-        button_frame.pack(
-            pady=20
-        )
-
-        def save_new_device():
-
-            ip = ip_entry.get().strip()
-
-            hostname = (
-                hostname_entry
-                .get()
-                .strip()
-            )
-
-            mac = (
-                mac_entry
-                .get()
-                .strip()
-            )
-
-            status = status_var.get()
-
-            if not ip:
-
-                messagebox.showwarning(
-                    "Missing IP",
-                    "Please enter IP Address.",
-                    parent=dialog
-                )
-
-                return
-
-            try:
-
-                ipaddress.ip_address(
-                    ip
-                )
-
-            except ValueError:
-
-                messagebox.showerror(
-                    "Invalid IP",
-                    "IP Address không hợp lệ.",
-                    parent=dialog
-                )
-
-                return
-
-            result = device_manager.add_device(
-                ip=ip,
-                hostname=hostname,
-                mac=mac,
-                status=status
-            )
-
-            if result.get(
-                "success"
-            ):
-
-                self.add_activity(
-                    f"Added device: {ip}"
-                )
-
-                dialog.destroy()
-
-                self.refresh_device_manager()
-
-            else:
-
-                messagebox.showerror(
-                    "Thêm thiết bị",
-                    result.get(
-                        "message",
-                        "Cannot add device."
-                    ),
-                    parent=dialog
-                )
-
-        tk.Button(
-            button_frame,
-            text="Lưu",
-            command=save_new_device,
-            bg="#16A34A",
-            fg="white",
-            relief="flat",
-            bd=0,
-            padx=20,
-            pady=8,
-            cursor="hand2",
-            font=(
-                "Segoe UI",
-                10,
-                "bold"
-            )
-        ).pack(
-            side="left",
-            padx=5
-        )
-
-        tk.Button(
-            button_frame,
-            text="Hủy",
-            command=dialog.destroy,
-            bg="#6B7280",
-            fg="white",
-            relief="flat",
-            bd=0,
-            padx=20,
-            pady=8,
-            cursor="hand2"
-        ).pack(
-            side="left",
-            padx=5
-        )
-
-        ip_entry.focus()
+        from modules.device_dialog import DeviceEditor
+        def saved(fields):
+            self.add_activity('Added device: '+fields['ip'])
+            self.refresh_device_manager()
+        self.device_editor=DeviceEditor(self.root,device_manager.add_device,saved)
 
     def get_selected_device_ids(self):
         """Lấy danh sách ID của tất cả các dòng đang được chọn"""
@@ -3569,329 +3286,12 @@ class NetworkAutomationApp:
 
             return
 
-        dialog = tk.Toplevel(
-            self.root
-        )
-
-        dialog.title(
-            "Sửa thiết bị"
-        )
-
-        dialog.geometry(
-            "450x400"
-        )
-
-        dialog.resizable(
-            False,
-            False
-        )
-
-        dialog.transient(
-            self.root
-        )
-
-        dialog.grab_set()
-
-        frame = tk.Frame(
-            dialog,
-            bg="#F3F4F6"
-        )
-
-        frame.pack(
-            fill="both",
-            expand=True
-        )
-
-        tk.Label(
-            frame,
-            text="Sửa thiết bị",
-            bg="#F3F4F6",
-            fg="#111827",
-            font=(
-                "Segoe UI",
-                18,
-                "bold"
-            )
-        ).pack(
-            pady=(25, 20)
-        )
-
-        form = tk.Frame(
-            frame,
-            bg="white",
-            bd=1,
-            relief="solid"
-        )
-
-        form.pack(
-            fill="x",
-            padx=25
-        )
-
-        tk.Label(
-            form,
-            text="IP Address *",
-            bg="white",
-            fg="#374151"
-        ).grid(
-            row=0,
-            column=0,
-            sticky="w",
-            padx=15,
-            pady=(20, 5)
-        )
-
-        ip_entry = tk.Entry(
-            form,
-            width=35
-        )
-
-        ip_entry.insert(
-            0,
-            str(device.get("ip") or "")
-        )
-
-        ip_entry.grid(
-            row=1,
-            column=0,
-            padx=15,
-            pady=(0, 10)
-        )
-
-        tk.Label(
-            form,
-            text="Tên máy",
-            bg="white",
-            fg="#374151"
-        ).grid(
-            row=2,
-            column=0,
-            sticky="w",
-            padx=15,
-            pady=(5, 5)
-        )
-
-        hostname_entry = tk.Entry(
-            form,
-            width=35
-        )
-
-        hostname_entry.insert(
-            0,
-            device.get(
-                "hostname"
-            ) or ""
-        )
-
-        hostname_entry.grid(
-            row=3,
-            column=0,
-            padx=15,
-            pady=(0, 10)
-        )
-
-        tk.Label(
-            form,
-            text="Địa chỉ MAC",
-            bg="white",
-            fg="#374151"
-        ).grid(
-            row=4,
-            column=0,
-            sticky="w",
-            padx=15,
-            pady=(5, 5)
-        )
-
-        mac_entry = tk.Entry(
-            form,
-            width=35
-        )
-
-        mac_entry.insert(
-            0,
-            device.get(
-                "mac"
-            ) or ""
-        )
-
-        mac_entry.grid(
-            row=5,
-            column=0,
-            padx=15,
-            pady=(0, 10)
-        )
-
-        tk.Label(
-            form,
-            text="Trạng thái",
-            bg="white",
-            fg="#374151"
-        ).grid(
-            row=6,
-            column=0,
-            sticky="w",
-            padx=15,
-            pady=(5, 5)
-        )
-
-        status_var = tk.StringVar(
-            value=(
-                device.get(
-                    "status"
-                )
-                or "Unknown"
-            )
-        )
-
-        status_combo = ttk.Combobox(
-            form,
-            textvariable=status_var,
-            values=(
-                "Online",
-                "Offline",
-                "Unknown"
-            ),
-            width=32,
-            state="readonly"
-        )
-
-        status_combo.grid(
-            row=7,
-            column=0,
-            padx=15,
-            pady=(0, 20)
-        )
-
-        button_frame = tk.Frame(
-            frame,
-            bg="#F3F4F6"
-        )
-
-        button_frame.pack(
-            pady=20
-        )
-
-        def save_edit():
-
-            new_ip = (
-                ip_entry
-                .get()
-                .strip()
-            )
-
-            hostname = (
-                hostname_entry
-                .get()
-                .strip()
-            )
-
-            mac = (
-                mac_entry
-                .get()
-                .strip()
-            )
-
-            status = (
-                status_var
-                .get()
-            )
-
-            if not new_ip:
-
-                messagebox.showwarning(
-                    "Invalid IP",
-                    "IP Address không được để trống.",
-                    parent=dialog
-                )
-
-                return
-
-            try:
-
-                ipaddress.ip_address(
-                    new_ip
-                )
-
-            except ValueError:
-
-                messagebox.showerror(
-                    "Invalid IP",
-                    "IP Address không hợp lệ.",
-                    parent=dialog
-                )
-
-                return
-
-            result = device_manager.edit_device(
-                device_id=device_id,
-                ip=new_ip,
-                hostname=hostname,
-                mac=mac,
-                status=status
-            )
-
-            if result.get(
-                "success"
-            ):
-
-                self.add_activity(
-                    f"Updated device: {new_ip}"
-                )
-
-                dialog.destroy()
-
-                self.refresh_device_manager()
-
-            else:
-
-                messagebox.showerror(
-                    "Sửa thiết bị",
-                    result.get(
-                        "message",
-                        "Cannot update device."
-                    ),
-                    parent=dialog
-                )
-
-        tk.Button(
-            button_frame,
-            text="Lưu",
-            command=save_edit,
-            bg="#2563EB",
-            fg="white",
-            relief="flat",
-            bd=0,
-            padx=20,
-            pady=8,
-            cursor="hand2",
-            font=(
-                "Segoe UI",
-                10,
-                "bold"
-            )
-        ).pack(
-            side="left",
-            padx=5
-        )
-
-        tk.Button(
-            button_frame,
-            text="Hủy",
-            command=dialog.destroy,
-            bg="#6B7280",
-            fg="white",
-            relief="flat",
-            bd=0,
-            padx=20,
-            pady=8,
-            cursor="hand2"
-        ).pack(
-            side="left",
-            padx=5
-        )
-
-        ip_entry.focus()
+        from functools import partial
+        from modules.device_dialog import DeviceEditor
+        def saved(fields):
+            self.add_activity('Updated device: '+fields['ip'])
+            self.refresh_device_manager()
+        self.device_editor=DeviceEditor(self.root,partial(device_manager.edit_device,device_id=device_id),saved,device)
 
     def delete_selected_devices(self):
         """Xóa hàng loạt các thiết bị đang được chọn"""
@@ -3956,7 +3356,7 @@ class NetworkAutomationApp:
 
         top = tk.Frame(
             self.content,
-            bg="white",
+            bg=UI_COLORS['surface'],
             bd=1,
             relief="solid"
         )
@@ -3970,8 +3370,8 @@ class NetworkAutomationApp:
         tk.Label(
             top,
             text="IP Addresses / Hosts:",
-            bg="white",
-            fg="#374151",
+            bg=UI_COLORS['surface'],
+            fg=UI_COLORS['text'],
             font=(
                 "Segoe UI",
                 10,
@@ -4006,7 +3406,7 @@ class NetworkAutomationApp:
 
         button_frame = tk.Frame(
             top,
-            bg="white"
+            bg=UI_COLORS['surface']
         )
 
         button_frame.pack(
@@ -4019,8 +3419,8 @@ class NetworkAutomationApp:
             button_frame,
             text="Ping tất cả",
             command=self.run_ping_all,
-            bg="#2563EB",
-            fg="white",
+            bg=UI_COLORS['primary'],
+            fg=UI_COLORS['text'],
             relief="flat",
             bd=0,
             padx=15,
@@ -4041,8 +3441,8 @@ class NetworkAutomationApp:
             button_frame,
             text="Bắt đầu Ping tự động",
             command=self.toggle_auto_ping,
-            bg="#16A34A",
-            fg="white",
+            bg=UI_COLORS['success_bg'],
+            fg=UI_COLORS['text'],
             relief="flat",
             bd=0,
             padx=15,
@@ -4065,10 +3465,10 @@ class NetworkAutomationApp:
             button_frame,
             text="Nạp từ thiết bị",
             command=self.load_ips_from_device_manager,
-            bg="#4B5563",
-            fg="white",
-            activebackground="#374151",
-            activeforeground="white",
+            bg=UI_COLORS['surface_alt'],
+            fg=UI_COLORS['text'],
+            activebackground=UI_COLORS['surface_alt'],
+            activeforeground=UI_COLORS['text'],
             relief="flat",
             bd=0,
             padx=15,
@@ -4091,8 +3491,8 @@ class NetworkAutomationApp:
         tk.Label(
             button_frame,
             text="Chu kỳ:",
-            bg="white",
-            fg="#374151"
+            bg=UI_COLORS['surface'],
+            fg=UI_COLORS['text']
         ).pack(
             side="left",
             padx=(10, 5)
@@ -4119,8 +3519,8 @@ class NetworkAutomationApp:
             button_frame,
             text="Xóa",
             command=self.clear_ping,
-            bg="#6B7280",
-            fg="white",
+            bg=UI_COLORS['surface_alt'],
+            fg=UI_COLORS['text'],
             relief="flat",
             bd=0,
             padx=15,
@@ -4136,8 +3536,8 @@ class NetworkAutomationApp:
         self.ping_status_label = tk.Label(
             button_frame,
             text="Sẵn sàng",
-            bg="white",
-            fg="#6B7280"
+            bg=UI_COLORS['surface'],
+            fg=UI_COLORS['muted']
         )
 
         self.ping_status_label.pack(
@@ -4147,7 +3547,7 @@ class NetworkAutomationApp:
 
         result_frame = tk.Frame(
             self.content,
-            bg="white",
+            bg=UI_COLORS['surface'],
             bd=1,
             relief="solid"
         )
@@ -4256,17 +3656,17 @@ class NetworkAutomationApp:
 
         self.ping_table.tag_configure(
             "online",
-            foreground="#16A34A"
+            foreground=UI_COLORS['success']
         )
 
         self.ping_table.tag_configure(
             "offline",
-            foreground="#DC2626"
+            foreground=UI_COLORS['danger']
         )
 
         self.ping_table.tag_configure(
             "error",
-            foreground="#D97706"
+            foreground=UI_COLORS['warning']
         )
 
     def load_ips_from_device_manager(self):
@@ -4378,6 +3778,8 @@ class NetworkAutomationApp:
 
         thread.start()
 
+        self.ping_thread = thread
+
     def ping_worker(
         self,
         ips
@@ -4391,19 +3793,13 @@ class NetworkAutomationApp:
                 timeout=1
             )
 
-            self.root.after(
-                0,
-                self.display_ping_results,
-                results
-            )
+            if not self._closing:
+                self.root.after(0, self.display_ping_results, results)
 
         except Exception as error:
 
-            self.root.after(
-                0,
-                self.ping_error,
-                str(error)
-            )
+            if not self._closing:
+                self.root.after(0, self.ping_error, str(error))
 
     def display_ping_results(
         self,
@@ -4554,7 +3950,7 @@ class NetworkAutomationApp:
 
         self.auto_ping_button.config(
             text="Dừng Ping tự động",
-            bg="#DC2626"
+            bg=UI_COLORS['danger_bg']
         )
 
         self.ping_status_label.config(
@@ -4603,7 +3999,7 @@ class NetworkAutomationApp:
 
                     self.auto_ping_button.config(
                         text="Bắt đầu Ping tự động",
-                        bg="#16A34A"
+                        bg=UI_COLORS['success_bg']
                     )
 
             except tk.TclError:
@@ -4984,10 +4380,32 @@ class NetworkAutomationApp:
         if self.current_role != "Admin":
             messagebox.showwarning("Phân quyền", "Chỉ Admin được quản lý người dùng và phân quyền.")
             return
-        self.current_page = "Người dùng & Phân quyền"
+        self.current_page = "Quản lý tài khoản"
         self.clear_content()
-        self.set_page_title("Người dùng & Phân quyền", "Quản lý tài khoản Admin / Operator / Viewer")
-        self.user_role_page = UserRolePage(self.content, activity_callback=self.add_activity)
+        self.set_page_title("Quản lý tài khoản", "Thêm, sửa, khóa tài khoản và phân quyền kỹ thuật viên")
+        self.user_role_page = UserRolePage(self.content, activity_callback=self.add_activity,
+                                         session_user=self.session_user, on_session_update=self.update_session_profile)
+
+    def update_session_profile(self, user):
+        self.session_user.update(user)
+        self.current_role = self.session_user['role']
+        self.account_header.render(compact=self.root.winfo_width()<1100)
+        self.sidebar_title.configure(text=f"NETWORK\nAUTOMATION\n\n{self.session_user['username']} • {self.current_role}")
+
+    def open_profile(self):
+        from modules.account_ui import profile_dialog
+        try:
+            profile_dialog(self.root, self.session_user, self.open_password, self.show_user_roles)
+        except ValueError as exc:
+            messagebox.showwarning('Hồ sơ cá nhân', str(exc), parent=self.root)
+
+    def open_password(self):
+        if self.session_user.get('bootstrap'):
+            self.show_user_roles()
+            self.user_role_page.page.add()
+            return
+        from modules.account_ui import password_dialog
+        password_dialog(self.root, self.session_user)
 
     def show_monitoring_service(self):
         self.current_page = "Dịch vụ giám sát nền"
@@ -5000,35 +4418,62 @@ class NetworkAutomationApp:
         self.stable_core_page = StableCorePage(self.content, self.job_queue_engine, self.session_user)
 
     def show_audit_log(self):
-        self.current_page = "Nhật ký Audit"
-        self.clear_content(); self.set_page_title("Nhật ký Audit", "Theo dõi hành động quản trị theo tài khoản")
-        AuditLogPage(self.content)
+        self.current_page = "Nhật ký hoạt động"
+        subtitle = "Theo dõi hoạt động của tất cả tài khoản" if self.current_role == 'Admin' else "Theo dõi hoạt động của tài khoản đang đăng nhập"
+        self.clear_content(); self.set_page_title("Nhật ký hoạt động", subtitle)
+        AuditLogPage(self.content, self.session_user)
 
     def show_restore_config(self):
         self.current_page = "Khôi phục cấu hình"
         self.clear_content(); self.set_page_title("Khôi phục cấu hình", "Khôi phục có xác nhận và tạo safety backup trước khi thay đổi")
         RestoreConfigPage(self.content, self.session_user)
 
-    def on_close(self):
-        # Drain the new workflow without blocking Tk or abandoning its DB writes.
-        if hasattr(self, "auto_ip_engine") and self.auto_ip_engine.running:
-            self.auto_ip_engine.stop()
-            self.root.title("Đang dừng Tự động IP/Excel...")
-            self.root.after(250, self.on_close)
+    def logout(self):
+        self.on_close(reason='logout')
+
+    def on_close(self, reason='close'):
+        if self._closing:
             return
-        if hasattr(self, "auto_ip_page"):
-            self.auto_ip_page.destroy()
-        try: self.job_queue_engine.stop()
-        except Exception: pass
-        try: self.monitoring_service.stop()
-        except Exception: pass
-        try: self.background_alert_engine.stop()
-        except Exception: pass
-        try: self.root_cause_engine.stop()
-        except Exception: pass
-        try: self.auto_audit_scheduler.stop()
-        except Exception: pass
-        try: audit(self.session_user.get('username'), self.current_role, 'Đóng ứng dụng', 'Network Automation', 'Kết thúc phiên làm việc')
+        self._closing = True
+        self.exit_reason = reason
+        self._closing_threads = [getattr(self, 'scan_thread', None), getattr(self, 'ping_thread', None)]
+        # Stop scheduling before waiting for current workers to finish.
+        for name in ('job_queue_engine', 'monitoring_service', 'background_alert_engine',
+                     'root_cause_engine', 'auto_audit_scheduler', 'auto_ip_engine'):
+            engine = getattr(self, name, None)
+            if engine:
+                try:
+                    engine.stop()
+                except Exception:
+                    logging.getLogger(__name__).exception('Cannot stop %s', name)
+        from modules.responsive_layout import cancel_page_timers
+        cancel_page_timers(self.root)
+        self.clear_content()
+        self.topbar.pack_forget()
+        self.sidebar.pack_forget()
+        # Close session dialogs so no account actions can be submitted while exiting.
+        for child in self.root.winfo_children():
+            if isinstance(child, tk.Toplevel):
+                child.destroy()
+        self.root.title('Đang đăng xuất...' if reason == 'logout' else 'Đang đóng ứng dụng...')
+        self.set_page_title('Đang kết thúc phiên', 'Đang dừng tác vụ nền, vui lòng chờ...')
+        self._finish_close()
+
+    def _finish_close(self):
+        # Drain workers without blocking the Tk event loop or dropping DB writes.
+        if hasattr(self, "auto_ip_engine") and self.auto_ip_engine.running:
+            self.root.after(250, self._finish_close)
+            return
+        threads = list(getattr(self, '_closing_threads', []))
+        for name in ('monitoring_service', 'background_alert_engine', 'auto_audit_scheduler'):
+            threads.append(getattr(getattr(self, name, None), 'thread', None))
+        threads.extend(getattr(getattr(self, 'job_queue_engine', None), 'threads', []))
+        if any(thread and thread.is_alive() for thread in threads):
+            self.root.after(250, self._finish_close)
+            return
+        try: audit(self.session_user.get('username'), self.current_role,
+                   'Đăng xuất' if self.exit_reason == 'logout' else 'Đóng ứng dụng',
+                   'Network Automation', 'Kết thúc phiên làm việc')
         except Exception: pass
         self.root.destroy()
 
@@ -5045,7 +4490,7 @@ class NetworkAutomationApp:
 
         frame = tk.Frame(
             self.content,
-            bg="white",
+            bg=UI_COLORS['surface'],
             bd=1,
             relief="solid"
         )
@@ -5060,8 +4505,8 @@ class NetworkAutomationApp:
         tk.Label(
             frame,
             text="Sắp có",
-            bg="white",
-            fg="#6B7280",
+            bg=UI_COLORS['surface'],
+            fg=UI_COLORS['muted'],
             font=(
                 "Segoe UI",
                 20,
@@ -5072,14 +4517,9 @@ class NetworkAutomationApp:
         )
 
 
-if __name__ == "__main__":
-
-    setup_logging()
-    init_database()
-    ensure_server_monitor_tables()
-    ensure_v5_tables()
-
-    root = tk.Tk()
+def run_application():
+    """Return to a fresh login after logout; bootstrap is only for first launch."""
+    from modules.ui_theme import apply_theme
 
     def _tk_exception(exc, val, tb):
         logging.getLogger("tkinter").error("Unhandled Tk callback exception", exc_info=(exc, val, tb))
@@ -5088,15 +4528,28 @@ if __name__ == "__main__":
         except Exception:
             pass
 
-    root.report_callback_exception = _tk_exception
-    root.withdraw()
-
-    # Nếu chưa có tài khoản cục bộ, cho phép bootstrap bằng local-admin.
-    # Sau khi Admin đầu tiên được tạo, những lần mở sau bắt buộc đăng nhập.
-    session_user = LoginDialog(root).run()
-    if session_user is None:
-        root.destroy()
-    else:
+    allow_bootstrap = True
+    while True:
+        # Each login gets a fresh Tk tree, bindings and timers.
+        root = tk.Tk()
+        apply_theme(root)
+        root.report_callback_exception = _tk_exception
+        root.withdraw()
+        session_user = LoginDialog(root, allow_bootstrap=allow_bootstrap).run()
+        if session_user is None:
+            root.destroy()
+            break
         root.deiconify()
         app = NetworkAutomationApp(root, session_user=session_user)
         root.mainloop()
+        if app.exit_reason != 'logout':
+            break
+        allow_bootstrap = False
+
+
+if __name__ == "__main__":
+    setup_logging()
+    init_database()
+    ensure_server_monitor_tables()
+    ensure_v5_tables()
+    run_application()

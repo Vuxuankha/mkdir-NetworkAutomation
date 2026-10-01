@@ -1,4 +1,5 @@
 from __future__ import annotations
+from modules.ui_theme import PALETTE as UI_COLORS
 import os, queue, shutil, sqlite3, threading, time
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -138,15 +139,15 @@ class StableCorePage:
     def __init__(self,parent,worker,session_user):
         ensure_v11_tables(); self.parent=parent; self.worker=worker; self.user=session_user; self._build(); self.refresh()
     def _build(self):
-        top=tk.Frame(self.parent,bg='#F3F4F6'); top.pack(fill='x',padx=25,pady=(0,8))
-        tk.Button(top,text='Kiểm tra hệ thống',command=self.refresh,bg='#2563EB',fg='white',relief='flat').pack(side='left')
+        top=tk.Frame(self.parent,bg=UI_COLORS['background']); top.pack(fill='x',padx=25,pady=(0,8))
+        tk.Button(top,text='Kiểm tra hệ thống',command=self.refresh,bg=UI_COLORS['primary'],fg=UI_COLORS['text'],relief='flat').pack(side='left')
         tk.Button(top,text='Backup Database',command=self.backup).pack(side='left',padx=6); tk.Button(top,text='Tối ưu Database',command=self.vacuum).pack(side='left')
-        self.summary=tk.StringVar(); tk.Label(top,textvariable=self.summary,bg='#F3F4F6').pack(side='right')
-        box=tk.Frame(self.parent,bg='white'); box.pack(fill='both',expand=True,padx=25,pady=(0,10)); cols=('component','status','detail'); self.t=ttk.Treeview(box,columns=cols,show='headings')
+        self.summary=tk.StringVar(); tk.Label(top,textvariable=self.summary,bg=UI_COLORS['background']).pack(side='right')
+        box=tk.Frame(self.parent,bg=UI_COLORS['surface']); box.pack(fill='both',expand=True,padx=25,pady=(0,10)); cols=('component','status','detail'); self.t=ttk.Treeview(box,columns=cols,show='headings')
         for c,h,w in [('component','Thành phần',200),('status','Trạng thái',120),('detail','Chi tiết',650)]: self.t.heading(c,text=h); self.t.column(c,width=w,anchor='w')
         self.t.pack(fill='both',expand=True)
-        s=core_settings(); cfg=tk.LabelFrame(self.parent,text='Độ ổn định trạng thái',bg='#F3F4F6'); cfg.pack(fill='x',padx=25,pady=(0,10)); self.fail=tk.IntVar(value=s['offline_failures']); self.ok=tk.IntVar(value=s['online_successes']); self.retry=tk.IntVar(value=s['retry_count'])
-        for i,(label,var) in enumerate([('Số lần lỗi để Offline',self.fail),('Số lần OK để Online',self.ok),('Retry job',self.retry)]): tk.Label(cfg,text=label,bg='#F3F4F6').grid(row=0,column=i*2,padx=5,pady=8); tk.Spinbox(cfg,from_=1,to=10,textvariable=var,width=5).grid(row=0,column=i*2+1)
+        s=core_settings(); cfg=tk.LabelFrame(self.parent,text='Độ ổn định trạng thái',bg=UI_COLORS['background']); cfg.pack(fill='x',padx=25,pady=(0,10)); self.fail=tk.IntVar(value=s['offline_failures']); self.ok=tk.IntVar(value=s['online_successes']); self.retry=tk.IntVar(value=s['retry_count'])
+        for i,(label,var) in enumerate([('Số lần lỗi để Offline',self.fail),('Số lần OK để Online',self.ok),('Retry job',self.retry)]): tk.Label(cfg,text=label,bg=UI_COLORS['background']).grid(row=0,column=i*2,padx=5,pady=8); tk.Spinbox(cfg,from_=1,to=10,textvariable=var,width=5).grid(row=0,column=i*2+1)
         tk.Button(cfg,text='Lưu',command=self.save).grid(row=0,column=6,padx=10)
     def refresh(self):
         for x in self.t.get_children(): self.t.delete(x)

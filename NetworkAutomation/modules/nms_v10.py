@@ -1,4 +1,5 @@
 from __future__ import annotations
+from modules.ui_theme import PALETTE as UI_COLORS
 
 from datetime import datetime
 import tkinter as tk
@@ -255,8 +256,8 @@ class DeviceDependenciesPage:
         self._build(); self.refresh()
 
     def _build(self):
-        ctl=tk.Frame(self.parent,bg='#F3F4F6');ctl.pack(fill='x',padx=25,pady=(0,8))
-        self.add_btn=tk.Button(ctl,text='Thêm phụ thuộc',command=self.add,bg='#2563EB',fg='white',relief='flat');self.add_btn.pack(side='left')
+        ctl=tk.Frame(self.parent,bg=UI_COLORS['background']);ctl.pack(fill='x',padx=25,pady=(0,8))
+        self.add_btn=tk.Button(ctl,text='Thêm phụ thuộc',command=self.add,bg=UI_COLORS['primary'],fg=UI_COLORS['text'],relief='flat');self.add_btn.pack(side='left')
         self.del_btn=tk.Button(ctl,text='Xóa',command=self.delete);self.del_btn.pack(side='left',padx=5)
         self.import_btn=tk.Button(ctl,text='Nhập từ Sơ đồ mạng',command=self.import_links);self.import_btn.pack(side='left',padx=5)
         tk.Button(ctl,text='Làm mới',command=self.refresh).pack(side='left',padx=5)
@@ -267,7 +268,7 @@ class DeviceDependenciesPage:
         specs=[('id','ID',50),('parent','Thiết bị cha',170),('p_ip','IP cha',120),('child','Thiết bị con',170),('c_ip','IP con',120),('type','Loại',90),('critical','Mức quan trọng',105),('enabled','Bật',55),('note','Ghi chú',220)]
         for c,h,w in specs:self.t.heading(c,text=h);self.t.column(c,width=w,anchor='w')
         self.t.pack(fill='both',expand=True,padx=25,pady=(0,12))
-        tk.Label(self.parent,text='Thiết bị cha là thiết bị mà thiết bị con phụ thuộc để kết nối/dịch vụ hoạt động. Dữ liệu này được dùng để chống “bão cảnh báo” và phân tích nguyên nhân gốc.',bg='#F3F4F6',fg='#6B7280',wraplength=1000,justify='left').pack(anchor='w',padx=25,pady=(0,12))
+        tk.Label(self.parent,text='Thiết bị cha là thiết bị mà thiết bị con phụ thuộc để kết nối/dịch vụ hoạt động. Dữ liệu này được dùng để chống “bão cảnh báo” và phân tích nguyên nhân gốc.',bg=UI_COLORS['background'],fg=UI_COLORS['muted'],wraplength=1000,justify='left').pack(anchor='w',padx=25,pady=(0,12))
 
     def refresh(self):
         for x in self.t.get_children():self.t.delete(x)
@@ -300,7 +301,7 @@ class DeviceDependenciesPage:
                     VALUES(?,?,?,?,1,?,?,?) ON CONFLICT(parent_device_id,child_device_id) DO UPDATE SET relation_type=excluded.relation_type,criticality=excluded.criticality,enabled=1,note=excluded.note,updated_at=excluded.updated_at''',(pd['id'],cd['id'],typ.get(),crit.get(),note.get().strip(),_now(),_now()));c.commit()
             finally:c.close()
             self.activity(f"Đã thêm phụ thuộc {pd['label']} -> {cd['label']}");w.destroy();self.refresh()
-        tk.Button(w,text='Lưu',command=save,bg='#2563EB',fg='white').grid(row=len(fields),column=1,sticky='e',padx=8,pady=16)
+        tk.Button(w,text='Lưu',command=save,bg=UI_COLORS['primary'],fg=UI_COLORS['text']).grid(row=len(fields),column=1,sticky='e',padx=8,pady=16)
 
     def delete(self):
         s=self.t.selection()
@@ -326,12 +327,12 @@ class RootCauseAnalysisPage:
     def __init__(self,parent,activity_callback=None):
         ensure_v10_tables();self.parent=parent;self.activity=activity_callback or (lambda m:None);self._build();self.refresh()
     def _build(self):
-        ctl=tk.Frame(self.parent,bg='#F3F4F6');ctl.pack(fill='x',padx=25,pady=(0,8))
-        tk.Button(ctl,text='Phân tích ngay',command=self.analyze,bg='#2563EB',fg='white',relief='flat').pack(side='left')
+        ctl=tk.Frame(self.parent,bg=UI_COLORS['background']);ctl.pack(fill='x',padx=25,pady=(0,8))
+        tk.Button(ctl,text='Phân tích ngay',command=self.analyze,bg=UI_COLORS['primary'],fg=UI_COLORS['text'],relief='flat').pack(side='left')
         tk.Button(ctl,text='Làm mới',command=self.refresh).pack(side='left',padx=5)
-        self.summary=tk.StringVar(value='Chưa phân tích');tk.Label(ctl,textvariable=self.summary,bg='#F3F4F6',fg='#374151').pack(side='left',padx=14)
+        self.summary=tk.StringVar(value='Chưa phân tích');tk.Label(ctl,textvariable=self.summary,bg=UI_COLORS['background'],fg=UI_COLORS['text']).pack(side='left',padx=14)
         pan=ttk.Panedwindow(self.parent,orient='vertical');pan.pack(fill='both',expand=True,padx=25,pady=(0,12))
-        top=tk.Frame(pan,bg='white');bot=tk.Frame(pan,bg='white');pan.add(top,weight=1);pan.add(bot,weight=1)
+        top=tk.Frame(pan,bg=UI_COLORS['surface']);bot=tk.Frame(pan,bg=UI_COLORS['surface']);pan.add(top,weight=1);pan.add(bot,weight=1)
         cols=('id','root','severity','impact','status','first','last')
         self.events=ttk.Treeview(top,columns=cols,show='headings',height=8)
         for c,h,w in [('id','ID',50),('root','Nguyên nhân gốc',170),('severity','Mức độ',90),('impact','Thiết bị ảnh hưởng',120),('status','Trạng thái',100),('first','Bắt đầu',150),('last','Gần nhất',150)]:self.events.heading(c,text=h);self.events.column(c,width=w,anchor='w')
@@ -381,8 +382,8 @@ class ServiceImpactPage:
     def __init__(self,parent,activity_callback=None,role='Viewer'):
         ensure_v10_tables();self.parent=parent;self.activity=activity_callback or (lambda m:None);self.role=role;self._build();self.refresh()
     def _build(self):
-        ctl=tk.Frame(self.parent,bg='#F3F4F6');ctl.pack(fill='x',padx=25,pady=(0,8))
-        self.add_btn=tk.Button(ctl,text='Thêm dịch vụ',command=self.add_service,bg='#2563EB',fg='white',relief='flat');self.add_btn.pack(side='left')
+        ctl=tk.Frame(self.parent,bg=UI_COLORS['background']);ctl.pack(fill='x',padx=25,pady=(0,8))
+        self.add_btn=tk.Button(ctl,text='Thêm dịch vụ',command=self.add_service,bg=UI_COLORS['primary'],fg=UI_COLORS['text'],relief='flat');self.add_btn.pack(side='left')
         self.member_btn=tk.Button(ctl,text='Quản lý thành viên',command=self.manage_members);self.member_btn.pack(side='left',padx=5)
         self.del_btn=tk.Button(ctl,text='Xóa',command=self.delete);self.del_btn.pack(side='left',padx=5)
         tk.Button(ctl,text='Đánh giá trạng thái',command=self.refresh).pack(side='left',padx=5)
@@ -392,7 +393,7 @@ class ServiceImpactPage:
         self.t=ttk.Treeview(self.parent,columns=cols,show='headings')
         for c,h,w in [('id','ID',50),('name','Dịch vụ',180),('owner','Phụ trách',130),('status','Trạng thái',110),('members','Thiết bị',80),('down','Ảnh hưởng',80),('description','Mô tả',300)]:self.t.heading(c,text=h);self.t.column(c,width=w,anchor='w')
         self.t.pack(fill='both',expand=True,padx=25,pady=(0,12))
-        tk.Label(self.parent,text='Thiết bị “Bắt buộc” bị Offline hoặc là nguyên nhân gốc sẽ làm dịch vụ chuyển sang Gián đoạn. Thiết bị không bắt buộc bị lỗi sẽ làm dịch vụ Suy giảm.',bg='#F3F4F6',fg='#6B7280',wraplength=1000,justify='left').pack(anchor='w',padx=25,pady=(0,12))
+        tk.Label(self.parent,text='Thiết bị “Bắt buộc” bị Offline hoặc là nguyên nhân gốc sẽ làm dịch vụ chuyển sang Gián đoạn. Thiết bị không bắt buộc bị lỗi sẽ làm dịch vụ Suy giảm.',bg=UI_COLORS['background'],fg=UI_COLORS['muted'],wraplength=1000,justify='left').pack(anchor='w',padx=25,pady=(0,12))
     def refresh(self):
         for x in self.t.get_children():self.t.delete(x)
         c=_connect();rows=c.execute('SELECT * FROM managed_services ORDER BY name').fetchall();c.close()
@@ -411,7 +412,7 @@ class ServiceImpactPage:
             except Exception as e:messagebox.showerror('Dịch vụ',str(e),parent=w);return
             finally:c.close()
             self.activity('Đã thêm dịch vụ: '+name.get().strip());w.destroy();self.refresh()
-        tk.Button(w,text='Lưu',command=save,bg='#2563EB',fg='white').grid(row=3,column=1,sticky='e',padx=8,pady=18)
+        tk.Button(w,text='Lưu',command=save,bg=UI_COLORS['primary'],fg=UI_COLORS['text']).grid(row=3,column=1,sticky='e',padx=8,pady=18)
     def delete(self):
         i=self._id()
         if not i:return
@@ -433,4 +434,4 @@ class ServiceImpactPage:
             selected={int(x) for x in tree.selection()};c=_connect();c.execute('DELETE FROM service_members WHERE service_id=?',(sid,))
             for did in selected:c.execute('INSERT INTO service_members(service_id,device_id,required) VALUES(?,?,?)',(sid,did,1 if req.get() else 0))
             c.commit();c.close();self.activity(f'Đã cập nhật {len(selected)} thành viên dịch vụ');w.destroy();self.refresh()
-        tk.Button(w,text='Lưu thành viên',command=save,bg='#2563EB',fg='white').pack(anchor='e',padx=12,pady=12)
+        tk.Button(w,text='Lưu thành viên',command=save,bg=UI_COLORS['primary'],fg=UI_COLORS['text']).pack(anchor='e',padx=12,pady=12)
