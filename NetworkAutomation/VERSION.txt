@@ -1,1 +1,1 @@
-0.01 - Separate Auto IP / Excel workflow
+1.0.0

@@ -7,6 +7,7 @@ import time
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
+from app_runtime import hidden_subprocess_kwargs
 
 
 # ==========================================================
@@ -64,7 +65,8 @@ def ping_host(ip, timeout=1000, stop_event=None):
             stderr=subprocess.PIPE,
             text=True,
             encoding="utf-8",
-            errors="ignore"
+            errors="ignore",
+            **hidden_subprocess_kwargs()
         )
 
         return result.returncode == 0
@@ -115,7 +117,8 @@ def get_mac_from_arp(ip):
             stderr=subprocess.PIPE,
             text=True,
             encoding="cp850",
-            errors="ignore"
+            errors="ignore",
+            **hidden_subprocess_kwargs()
         )
 
         output = result.stdout

@@ -2,6 +2,7 @@
 import sqlite3
 import ipaddress
 from pathlib import Path
+from app_runtime import DATABASE_DIR, migrate_portable_data_once
 from datetime import datetime
 
 
@@ -9,10 +10,9 @@ from datetime import datetime
 # DATABASE CONFIG
 # ============================================================
 
-# Thư mục chứa file db.py
-BASE_DIR = Path(__file__).resolve().parent
-
-# Database nằm cùng thư mục database/
+# Writable database directory. Packaged builds use LOCALAPPDATA.
+migrate_portable_data_once()
+BASE_DIR = DATABASE_DIR
 DB_PATH = BASE_DIR / "network_automation.db"
 
 
@@ -20,14 +20,21 @@ DB_PATH = BASE_DIR / "network_automation.db"
 # DATABASE CONNECTION
 # ============================================================
 
-def get_connection():
-    """
-    Tạo kết nối SQLite.
-    """
+def get_connection(timeout=15.0):
+    """Create a production-friendly SQLite connection.
 
-    conn = sqlite3.connect(DB_PATH)
+    WAL allows readers and background monitoring writers to coexist much
+    better than the default rollback journal. busy_timeout prevents short
+    bursts from failing immediately with ``database is locked``.
+    """
+    conn = sqlite3.connect(DB_PATH, timeout=float(timeout))
     conn.row_factory = sqlite3.Row
-
+    conn.execute("PRAGMA foreign_keys = ON")
+    conn.execute("PRAGMA busy_timeout = 5000")
+    conn.execute("PRAGMA journal_mode = WAL")
+    conn.execute("PRAGMA synchronous = NORMAL")
+    conn.execute("PRAGMA temp_store = MEMORY")
+    conn.execute("PRAGMA cache_size = -20000")
     return conn
 
 
@@ -230,6 +237,161 @@ def _migrate_devices_table(cursor):
 
 
 # ============================================================
+# SQL V2 MIGRATIONS / INDEXES
+# ============================================================
+
+SQL_SCHEMA_VERSION = 2
+
+
+def _table_exists(cursor, table_name):
+    return cursor.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+        (table_name,),
+    ).fetchone() is not None
+
+
+def _backup_before_upgrade(conn, target_version):
+    """Create one SQLite-consistent backup before a schema version upgrade."""
+    current = conn.execute("PRAGMA user_version").fetchone()[0]
+    if int(current or 0) >= int(target_version) or not DB_PATH.exists():
+        return None
+    backup_dir = BASE_DIR / "db_backups"
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    out = backup_dir / f"pre_sql_v{target_version}_{stamp}.db"
+    dst = sqlite3.connect(out)
+    try:
+        conn.backup(dst)
+    finally:
+        dst.close()
+    return out
+
+
+def _ensure_sql_v2(cursor):
+    """Non-destructive SQL optimizations for the NOC workload."""
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS schema_migrations (
+            version INTEGER PRIMARY KEY,
+            name TEXT NOT NULL,
+            applied_at TEXT NOT NULL
+        )
+    """)
+
+    # Indexes are intentionally non-unique: older installations can contain
+    # duplicate legacy rows and an optimization migration must never delete
+    # or reject user data.
+    index_specs = {
+        "network_devices": [
+            ("idx_network_devices_status", "status"),
+            ("idx_network_devices_ip", "ip"),
+            ("idx_network_devices_name", "name"),
+            ("idx_network_devices_updated", "updated_at"),
+        ],
+        "devices": [
+            ("idx_devices_status", "status"),
+            ("idx_devices_last_seen", "last_seen"),
+        ],
+        "alerts": [
+            ("idx_alerts_status_created", "status, created_at"),
+            ("idx_alerts_severity_status", "severity, status"),
+            ("idx_alerts_ip_created", "ip, created_at"),
+        ],
+        "activity_logs": [("idx_activity_logs_created", "created_at")],
+        "audit_log": [
+            ("idx_audit_log_created", "created_at"),
+            ("idx_audit_log_user_created", "username, created_at"),
+        ],
+        "auth_log": [("idx_auth_log_user_created", "username, created_at")],
+        "ping_results": [("idx_ping_results_ip_time", "ip_address, ping_time")],
+        "health_samples": [("idx_health_samples_host_time", "host, created_at")],
+        "interface_samples": [("idx_interface_samples_host_if_time", "host, ifindex, created_at")],
+        "snmp_samples": [
+            ("idx_snmp_samples_host_time", "host, created_at"),
+            ("idx_snmp_samples_profile_time", "profile_id, created_at"),
+        ],
+        "config_backups": [("idx_config_backups_device_time", "device_name, created_at")],
+        "remote_history": [("idx_remote_history_host_time", "host, created_at")],
+        "server_monitor_results": [
+            ("idx_server_results_target_time", "target_id, checked_at"),
+            ("idx_server_results_status_time", "status, checked_at"),
+        ],
+        "server_monitor_targets": [("idx_server_targets_enabled", "enabled")],
+        "config_audit_history": [
+            ("idx_config_audit_device_time", "device_id, created_at"),
+            ("idx_config_audit_status_time", "status, created_at"),
+        ],
+        "auto_audit_runs": [("idx_auto_audit_runs_started", "started_at")],
+        "worker_jobs": [("idx_worker_jobs_type_status", "job_type, status, created_at")],
+        "incidents": [("idx_incidents_status_updated", "status, updated_at")],
+    }
+    for table, specs in index_specs.items():
+        if not _table_exists(cursor, table):
+            continue
+        columns = _get_table_columns(cursor, table)
+        for index_name, expr in specs:
+            needed = [x.strip().split()[0] for x in expr.split(',')]
+            if all(col in columns for col in needed):
+                cursor.execute(
+                    f'CREATE INDEX IF NOT EXISTS "{index_name}" ON "{table}" ({expr})'
+                )
+
+    # Dashboard queries normalize text status with LOWER/COALESCE. Expression
+    # indexes let SQLite optimize those queries without changing legacy data.
+    if _table_exists(cursor, "network_devices"):
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_network_devices_status_lc "
+            "ON network_devices(LOWER(COALESCE(status,'')))"
+        )
+    if _table_exists(cursor, "alerts"):
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_alerts_status_lc_id "
+            "ON alerts(LOWER(COALESCE(status,'')), id DESC)"
+        )
+
+    cursor.execute(
+        "INSERT OR IGNORE INTO schema_migrations(version,name,applied_at) VALUES(?,?,?)",
+        (SQL_SCHEMA_VERSION, "sqlite_wal_and_noc_indexes", datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+    )
+    cursor.execute(f"PRAGMA user_version = {SQL_SCHEMA_VERSION}")
+
+
+def optimize_database(vacuum=False):
+    """Run safe SQLite maintenance; VACUUM is opt-in because it needs a lock."""
+    conn = get_connection()
+    try:
+        conn.execute("PRAGMA optimize")
+        if vacuum:
+            conn.execute("VACUUM")
+    finally:
+        conn.close()
+
+
+def database_health():
+    """Return lightweight DB diagnostics for support/administration UI."""
+    conn = get_connection()
+    try:
+        quick = conn.execute("PRAGMA quick_check").fetchone()[0]
+        journal = conn.execute("PRAGMA journal_mode").fetchone()[0]
+        version = conn.execute("PRAGMA user_version").fetchone()[0]
+        tables = conn.execute(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+        ).fetchone()[0]
+        indexes = conn.execute(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name NOT LIKE 'sqlite_autoindex_%'"
+        ).fetchone()[0]
+        return {
+            "quick_check": quick,
+            "journal_mode": journal,
+            "schema_version": version,
+            "tables": tables,
+            "indexes": indexes,
+            "db_size_bytes": DB_PATH.stat().st_size if DB_PATH.exists() else 0,
+        }
+    finally:
+        conn.close()
+
+
+# ============================================================
 # INIT DATABASE
 # ============================================================
 
@@ -240,10 +402,17 @@ def init_database():
     Đồng thời migration database cũ.
     """
 
+    db_preexisting = DB_PATH.exists() and DB_PATH.stat().st_size > 0
     conn = get_connection()
     cursor = conn.cursor()
 
     try:
+
+        # Back up a legacy database before applying any schema changes.
+        # A brand-new database is not backed up; doing so after opening a
+        # write transaction can deadlock SQLite's backup API.
+        if db_preexisting:
+            _backup_before_upgrade(conn, SQL_SCHEMA_VERSION)
 
         # ----------------------------------------------------
         # Devices
@@ -298,9 +467,13 @@ def init_database():
             )
         """)
 
-        # Migration cho các bản NMS mới: Auto Discovery cần hai cột này.
+        # Migration cho các bản NMS mới và tương thích schema cũ.
+        _add_column_if_missing(cursor, "network_devices", "device_name", "TEXT")
+        _add_column_if_missing(cursor, "network_devices", "ip_address", "TEXT")
         _add_column_if_missing(cursor, "network_devices", "created_at", "TEXT")
         _add_column_if_missing(cursor, "network_devices", "updated_at", "TEXT")
+        cursor.execute("UPDATE network_devices SET device_name=COALESCE(NULLIF(device_name,''), name)")
+        cursor.execute("UPDATE network_devices SET ip_address=COALESCE(NULLIF(ip_address,''), ip)")
 
         now_text = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         cursor.execute(
@@ -328,7 +501,11 @@ def init_database():
         """)
 
         _add_column_if_missing(cursor, "alerts", "severity", "TEXT DEFAULT 'Warning'")
+        _add_column_if_missing(cursor, "alerts", "ip_address", "TEXT")
+        _add_column_if_missing(cursor, "alerts", "resolved", "INTEGER DEFAULT 0")
         cursor.execute("UPDATE alerts SET severity='Warning' WHERE severity IS NULL OR TRIM(severity)=''")
+        cursor.execute("UPDATE alerts SET ip_address=COALESCE(NULLIF(ip_address,''), ip)")
+        cursor.execute("UPDATE alerts SET resolved=0 WHERE resolved IS NULL")
 
         # ----------------------------------------------------
         # Activity Logs
@@ -355,6 +532,7 @@ def init_database():
             )
         """)
 
+        _ensure_sql_v2(cursor)
         conn.commit()
 
     except Exception:

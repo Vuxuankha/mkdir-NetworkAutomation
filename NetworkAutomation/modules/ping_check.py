@@ -4,6 +4,7 @@ import re
 import time
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from app_runtime import hidden_subprocess_kwargs
 
 
 # ==========================================================
@@ -62,7 +63,8 @@ def ping_host(ip, timeout=1000):
             stderr=subprocess.PIPE,
             text=True,
             encoding="utf-8",
-            errors="ignore"
+            errors="ignore",
+            **hidden_subprocess_kwargs()
         )
 
         elapsed = (

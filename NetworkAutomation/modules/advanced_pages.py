@@ -1,6 +1,4 @@
 import os
-import queue
-import re
 import socket
 import sqlite3
 import struct
@@ -15,13 +13,12 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 
-from modules.ssh_runner import connection_options, execute_commands
-from database.db import DB_PATH, init_database
+from database.db import DB_PATH, init_database, get_connection
+from app_runtime import BACKUP_DIR
+from modules.nms_v5 import encrypt_secret, decrypt_secret
 
-APP_DIR = Path(__file__).resolve().parents[1]
 SESSION_SECRETS = {'telegram_token': '', 'smtp_password': ''}
-BACKUP_DIR = APP_DIR / 'backups'
-BACKUP_DIR.mkdir(exist_ok=True)
+BACKUP_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def _now():
@@ -30,8 +27,7 @@ def _now():
 
 def _connect():
     init_database()
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = get_connection()
     return conn
 
 
@@ -538,7 +534,7 @@ class NetworkTopologyPage(BaseAdvancedPage):
 
 class SSHAutomationPage(BaseAdvancedPage):
     def __init__(self,parent,activity_callback=None):
-        super().__init__(parent,activity_callback);self.host=tk.StringVar();self.port=tk.StringVar(value='22');self.username=tk.StringVar();self.password=tk.StringVar();self.template=tk.StringVar();self.status=tk.StringVar(value='Sẵn sàng');self.paging=tk.StringVar();self.mode=tk.StringVar(value='exec');self._busy=False;self._results=queue.Queue();self._build();self._load_templates()
+        super().__init__(parent,activity_callback);self.host=tk.StringVar();self.port=tk.StringVar(value='22');self.username=tk.StringVar();self.password=tk.StringVar();self.template=tk.StringVar();self.status=tk.StringVar(value='Sẵn sàng');self._build();self._load_templates()
 
     def _build(self):
         ctl=tk.Frame(self.parent,bg='white',bd=1,relief='solid');ctl.pack(fill='x',padx=25,pady=(0,10))
@@ -549,86 +545,43 @@ class SSHAutomationPage(BaseAdvancedPage):
         tk.Button(ctl,text='Lưu mẫu',command=self.save_template).grid(row=1,column=5,pady=(0,12))
         tk.Button(ctl,text='Sao lưu cấu hình đang chạy',command=self.backup_running).grid(row=1,column=7,pady=(0,12),padx=5)
         tk.Label(ctl,textvariable=self.status,bg='white',fg='#6B7280').grid(row=2,column=0,columnspan=8,sticky='w',padx=10,pady=(0,8))
-        tk.Label(ctl,text='Chế độ SSH',bg='white').grid(row=3,column=0,padx=10,pady=5)
-        ttk.Combobox(ctl,textvariable=self.mode,values=['exec','shell'],state='readonly',width=10).grid(row=3,column=1,sticky='w')
-        tk.Label(ctl,text='exec: máy chủ | shell: switch/router; thêm lệnh tắt phân trang phù hợp trước lệnh dài',bg='white',fg='#6B7280',wraplength=500,justify='left').grid(row=3,column=2,columnspan=6,sticky='w',padx=10,pady=5)
-        tk.Label(ctl,text='Tắt phân trang (shell)',bg='white').grid(row=4,column=0,padx=10,pady=5)
-        tk.Entry(ctl,textvariable=self.paging,width=28).grid(row=4,column=1,columnspan=2,sticky='w',pady=5)
         box=self.card();tk.Label(box,text='Lệnh (mỗi dòng một lệnh)',bg='white',font=('Segoe UI',10,'bold')).pack(anchor='w',padx=12,pady=(10,4));self.commands=tk.Text(box,height=9,font=('Consolas',10));self.commands.pack(fill='x',padx=12)
         tk.Label(box,text='Kết quả',bg='white',font=('Segoe UI',10,'bold')).pack(anchor='w',padx=12,pady=(10,4));self.output=tk.Text(box,font=('Consolas',9),bg='#111827',fg='#E5E7EB');self.output.pack(fill='both',expand=True,padx=12,pady=(0,12))
 
-    def _snapshot(self):
-        options = connection_options(self.host.get(), self.port.get(), self.username.get(),
-                                     self.password.get(), self.mode.get())
-        options['paging'] = self.paging.get().strip()
-        return options
-
-    def _execute(self, commands, options):
-        return execute_commands(options, commands)
-
-    def _start_job(self, commands, backup=False):
-        if self._busy:
-            messagebox.showinfo('Tự động hóa SSH', 'Đang chạy một tác vụ SSH. Vui lòng chờ.')
-            return
+    def _paramiko(self):
         try:
-            options = self._snapshot()
-        except ValueError as exc:
-            messagebox.showwarning('Tự động hóa SSH', str(exc))
-            return
-        self._busy = True
-        self._job_host = options['host']
-        self.status.set('Đang sao lưu...' if backup else 'Đang kết nối...')
-        self.output.delete('1.0', 'end')
-        def worker():
-            try:
-                out = self._execute(commands, options)
-                if backup:
-                    name = re.sub(r'[^a-zA-Z0-9_.-]', '_', options['host'])
-                    dst = BACKUP_DIR / f"{name}_ssh_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}.cfg"
-                    dst.write_text(out, encoding='utf-8')
-                    conn = _connect()
-                    try:
-                        conn.execute('INSERT INTO config_backups(device_name,source,file_path,size_bytes,note,created_at) VALUES(?,?,?,?,?,?)',
-                                     (options['host'], 'SSH', str(dst), dst.stat().st_size, 'Automatic SSH backup', _now()))
-                        conn.commit()
-                    except Exception:
-                        dst.unlink(missing_ok=True)
-                        raise
-                    finally:
-                        conn.close()
-                    self._results.put((str(dst), None, backup))
-                else:
-                    self._results.put((out, None, backup))
-            except Exception as exc:
-                self._results.put(('', str(exc), backup))
-        threading.Thread(target=worker, daemon=True).start()
-        self.parent.after(100, self._poll_result)
+            import paramiko
+            return paramiko
+        except ImportError:
+            raise RuntimeError('Paramiko is not installed. Run: pip install -r requirements.txt')
 
-    def _poll_result(self):
-        # Only the Tk main thread accesses widgets or schedules callbacks.
-        if not self.output.winfo_exists():
-            return
+    def _execute(self, commands):
+        paramiko=self._paramiko();host=self.host.get().strip();user=self.username.get().strip();pwd=self.password.get();port=int(self.port.get())
+        if not host or not user:raise ValueError('Host and Username are required.')
+        client=paramiko.SSHClient();client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         try:
-            out, err, backup = self._results.get_nowait()
-        except queue.Empty:
-            self.parent.after(100, self._poll_result)
-            return
-        self._busy = False
-        if backup:
-            self._backup_done(out, err)
-        else:
-            self._finish(out, err)
+            client.connect(hostname=host,port=port,username=user,password=pwd,timeout=7,look_for_keys=True,allow_agent=True)
+            pieces=[]
+            for cmd in commands:
+                stdin,stdout,stderr=client.exec_command(cmd,timeout=20)
+                out=stdout.read().decode(errors='replace');err=stderr.read().decode(errors='replace')
+                pieces.append(f'$ {cmd}\n{out}{err}')
+            return '\n'.join(pieces)
+        finally:client.close()
 
     def run_commands(self):
-        cmds = [x.strip() for x in self.commands.get('1.0', 'end').splitlines() if x.strip()]
-        if not cmds:
-            messagebox.showwarning('Tự động hóa SSH', 'Vui lòng nhập ít nhất một lệnh.')
-            return
-        self._start_job(cmds)
+        cmds=[x.strip() for x in self.commands.get('1.0','end').splitlines() if x.strip()]
+        if not cmds:messagebox.showwarning('Tự động hóa SSH','Enter at least one command.');return
+        self.status.set('Connecting...');self.output.delete('1.0','end')
+        def worker():
+            try:out=self._execute(cmds);self.parent.after(0,lambda:self._finish(out,None))
+            except Exception as exc:
+                msg=str(exc);self.parent.after(0,lambda m=msg:self._finish('',m))
+        threading.Thread(target=worker,daemon=True).start()
 
     def _finish(self,out,err):
         if err:self.status.set('Failed');self.output.insert('end','ERROR: '+err);return
-        self.status.set('Completed');self.output.insert('end',out);self.activity(f"SSH commands executed on {self._job_host}")
+        self.status.set('Completed');self.output.insert('end',out);self.activity(f"SSH commands executed on {self.host.get().strip()}")
 
     def save_template(self):
         name=simpledialog.askstring('SSH Template','Template name:',parent=self.parent)
@@ -650,15 +603,23 @@ class SSHAutomationPage(BaseAdvancedPage):
         name=self.template.get();self.commands.delete('1.0','end');self.commands.insert('1.0',self.templates.get(name,''))
 
     def backup_running(self):
-        cmd = simpledialog.askstring('Sao lưu SSH', 'Lệnh hiển thị cấu hình đang chạy:',
-                                     initialvalue='show running-config', parent=self.parent)
-        if cmd and cmd.strip():
-            # In shell mode, prepend a vendor-specific paging command here if needed.
-            cmds = [x.strip() for x in cmd.splitlines() if x.strip()]
-            self._start_job(cmds, backup=True)
+        # User can change this command for non-Cisco devices before running.
+        cmd=simpledialog.askstring('SSH Backup','Command that prints running configuration:',initialvalue='show running-config',parent=self.parent)
+        if not cmd:return
+        self.status.set('Backing up...')
+        def worker():
+            try:
+                out=self._execute([cmd]);name=(self.host.get().strip() or 'device').replace(':','_');dst=BACKUP_DIR/f"{name}_ssh_{datetime.now().strftime('%Y%m%d_%H%M%S')}.cfg";dst.write_text(out,encoding='utf-8')
+                conn=_connect()
+                try:conn.execute('INSERT INTO config_backups(device_name,source,file_path,size_bytes,note,created_at) VALUES(?,?,?,?,?,?)',(name,'SSH',str(dst),dst.stat().st_size,'Automatic SSH backup',_now()));conn.commit()
+                finally:conn.close()
+                self.parent.after(0,lambda:self._backup_done(str(dst),None))
+            except Exception as exc:
+                msg=str(exc);self.parent.after(0,lambda m=msg:self._backup_done('',m))
+        threading.Thread(target=worker,daemon=True).start()
 
     def _backup_done(self,path,err):
-        if err:self.status.set('Sao lưu thất bại');self.output.insert('end','ERROR: '+err);return
+        if err:self.status.set('Backup failed: '+err);return
         self.status.set('Backup saved: '+path);self.activity(f'SSH configuration backup: {path}')
 
 
@@ -667,40 +628,69 @@ class NotificationsPage(BaseAdvancedPage):
         super().__init__(parent,activity_callback)
         self.vars={
             'notify_enabled':tk.StringVar(value=get_setting('notify_enabled','0')),
+            'notify_telegram':tk.StringVar(value=get_setting('notify_telegram','1')),
+            'notify_email':tk.StringVar(value=get_setting('notify_email','0')),
+            'notify_offline':tk.StringVar(value=get_setting('notify_offline','1')),
+            'notify_drift':tk.StringVar(value=get_setting('notify_drift','1')),
+            'notify_security':tk.StringVar(value=get_setting('notify_security','1')),
+            'notify_daily_audit':tk.StringVar(value=get_setting('notify_daily_audit','1')),
+            'notify_cooldown_min':tk.StringVar(value=get_setting('notify_cooldown_min','60')),
             'telegram_chat_id':tk.StringVar(value=get_setting('telegram_chat_id','')),
             'smtp_host':tk.StringVar(value=get_setting('smtp_host','')),
             'smtp_port':tk.StringVar(value=get_setting('smtp_port','587')),
             'smtp_user':tk.StringVar(value=get_setting('smtp_user','')),
             'smtp_to':tk.StringVar(value=get_setting('smtp_to','')),
         }
-        self.telegram_token=tk.StringVar();self.smtp_password=tk.StringVar();self.status=tk.StringVar(value='Secrets are kept only for this running session.');self._build()
+        self.telegram_token=tk.StringVar(value=_load_secret('telegram_token_enc'))
+        self.smtp_password=tk.StringVar(value=_load_secret('smtp_password_enc'))
+        self.status=tk.StringVar(value='Secret được mã hóa bằng khóa credential cục bộ của ứng dụng.')
+        self._build()
 
     def _build(self):
-        box=self.card();inner=tk.Frame(box,bg='white');inner.pack(anchor='nw',padx=30,pady=20)
-        enabled=tk.Checkbutton(inner,text='Send notification when a new automatic alert is created',variable=self.vars['notify_enabled'],onvalue='1',offvalue='0',bg='white');enabled.grid(row=0,column=0,columnspan=3,sticky='w',pady=(0,15))
-        fields=[('Telegram Bot Token (session only)',self.telegram_token,'*'),('Telegram Chat ID',self.vars['telegram_chat_id'],''),('SMTP Host',self.vars['smtp_host'],''),('SMTP Port',self.vars['smtp_port'],''),('SMTP Username',self.vars['smtp_user'],''),('SMTP Password (session only)',self.smtp_password,'*'),('Email To',self.vars['smtp_to'],'')]
-        for i,(lab,var,show) in enumerate(fields,1):tk.Label(inner,text=lab,bg='white',font=('Segoe UI',10,'bold')).grid(row=i,column=0,sticky='w',pady=8,padx=(0,15));tk.Entry(inner,textvariable=var,width=42,show=show).grid(row=i,column=1,sticky='w',pady=8)
-        tk.Button(inner,text='Save Non-secret Settings',command=self.save,bg='#2563EB',fg='white',relief='flat').grid(row=9,column=1,sticky='w',pady=15)
-        tk.Button(inner,text='Test Telegram',command=self.test_telegram).grid(row=9,column=1,padx=(180,0),sticky='w',pady=15)
-        tk.Button(inner,text='Test Email',command=self.test_email).grid(row=9,column=1,padx=(285,0),sticky='w',pady=15)
-        tk.Label(inner,textvariable=self.status,bg='white',fg='#6B7280',wraplength=650,justify='left').grid(row=10,column=0,columnspan=3,sticky='w')
+        box=self.card(); inner=tk.Frame(box,bg='white'); inner.pack(anchor='nw',padx=30,pady=20,fill='x')
+        tk.Label(inner,text='Notification Center',bg='white',fg='#111827',font=('Segoe UI',15,'bold')).grid(row=0,column=0,columnspan=4,sticky='w')
+        tk.Label(inner,text='Gửi cảnh báo quan trọng, có chống gửi trùng theo thời gian cooldown.',bg='white',fg='#6B7280').grid(row=1,column=0,columnspan=4,sticky='w',pady=(2,12))
+        tk.Checkbutton(inner,text='Bật thông báo tự động',variable=self.vars['notify_enabled'],onvalue='1',offvalue='0',bg='white').grid(row=2,column=0,sticky='w')
+        tk.Checkbutton(inner,text='Telegram',variable=self.vars['notify_telegram'],onvalue='1',offvalue='0',bg='white').grid(row=2,column=1,sticky='w')
+        tk.Checkbutton(inner,text='Email SMTP',variable=self.vars['notify_email'],onvalue='1',offvalue='0',bg='white').grid(row=2,column=2,sticky='w')
+        events=tk.LabelFrame(inner,text='Sự kiện gửi thông báo',bg='white',padx=8,pady=6); events.grid(row=3,column=0,columnspan=4,sticky='ew',pady=10)
+        for i,(txt,key) in enumerate([('Thiết bị Offline','notify_offline'),('Configuration Drift','notify_drift'),('Security HIGH','notify_security'),('Daily Audit WARN/HIGH','notify_daily_audit')]):
+            tk.Checkbutton(events,text=txt,variable=self.vars[key],onvalue='1',offvalue='0',bg='white').grid(row=0,column=i,sticky='w',padx=(0,18))
+        fields=[('Cooldown (phút)',self.vars['notify_cooldown_min'],''),('Telegram Bot Token',self.telegram_token,'*'),('Telegram Chat ID',self.vars['telegram_chat_id'],''),('SMTP Host',self.vars['smtp_host'],''),('SMTP Port',self.vars['smtp_port'],''),('SMTP Username',self.vars['smtp_user'],''),('SMTP Password',self.smtp_password,'*'),('Email To',self.vars['smtp_to'],'')]
+        for i,(lab,var,show) in enumerate(fields,4):
+            tk.Label(inner,text=lab,bg='white',font=('Segoe UI',10,'bold')).grid(row=i,column=0,sticky='w',pady=6,padx=(0,15)); tk.Entry(inner,textvariable=var,width=42,show=show).grid(row=i,column=1,columnspan=2,sticky='w',pady=6)
+        btn=tk.Frame(inner,bg='white'); btn.grid(row=12,column=0,columnspan=4,sticky='w',pady=14)
+        tk.Button(btn,text='Lưu cấu hình',command=self.save,bg='#2563EB',fg='white',relief='flat',padx=12).pack(side='left',padx=(0,8))
+        tk.Button(btn,text='Test Telegram',command=self.test_telegram).pack(side='left',padx=4)
+        tk.Button(btn,text='Test Email',command=self.test_email).pack(side='left',padx=4)
+        tk.Label(inner,textvariable=self.status,bg='white',fg='#6B7280',wraplength=760,justify='left').grid(row=13,column=0,columnspan=4,sticky='w')
 
     def save(self):
-        SESSION_SECRETS['telegram_token'] = self.telegram_token.get()
-        SESSION_SECRETS['smtp_password'] = self.smtp_password.get()
-        for k,v in self.vars.items():set_setting(k,v.get().strip())
-        self.activity('Notification settings saved.');self.status.set('Saved. Bot token and SMTP password were not written to SQLite.')
+        try:
+            cd=max(0,int(self.vars['notify_cooldown_min'].get() or 0)); self.vars['notify_cooldown_min'].set(str(cd))
+            for k,v in self.vars.items(): set_setting(k,v.get().strip())
+            _save_secret('telegram_token_enc',self.telegram_token.get()); _save_secret('smtp_password_enc',self.smtp_password.get())
+            SESSION_SECRETS['telegram_token']=self.telegram_token.get(); SESSION_SECRETS['smtp_password']=self.smtp_password.get()
+            self.activity('Notification Center settings saved.'); self.status.set('Đã lưu. Token/password được mã hóa, không lưu dạng plaintext.')
+        except Exception as exc:self.status.set('Lỗi lưu cấu hình: '+str(exc))
 
     def test_telegram(self):
-        SESSION_SECRETS['telegram_token'] = self.telegram_token.get()
-        try:send_telegram(self.telegram_token.get(),self.vars['telegram_chat_id'].get(),'Network Automation Tool: Telegram test successful.');self.status.set('Telegram test sent.')
+        try:send_telegram(self.telegram_token.get(),self.vars['telegram_chat_id'].get(),'Network Automation Tool: Telegram test successful.');self.status.set('Đã gửi Telegram test.')
         except Exception as exc:self.status.set('Telegram error: '+str(exc))
 
     def test_email(self):
-        SESSION_SECRETS['smtp_password'] = self.smtp_password.get()
-        try:send_email(self.vars['smtp_host'].get(),self.vars['smtp_port'].get(),self.vars['smtp_user'].get(),self.smtp_password.get(),self.vars['smtp_to'].get(),'Network Automation Tool test','Email notification test successful.');self.status.set('Email test sent.')
+        try:send_email(self.vars['smtp_host'].get(),self.vars['smtp_port'].get(),self.vars['smtp_user'].get(),self.smtp_password.get(),self.vars['smtp_to'].get(),'Network Automation Tool test','Email notification test successful.');self.status.set('Đã gửi Email test.')
         except Exception as exc:self.status.set('Email error: '+str(exc))
 
+
+def _save_secret(key,value):
+    set_setting(key, encrypt_secret(value) if value else '')
+
+def _load_secret(key):
+    token=get_setting(key,'')
+    if not token:return ''
+    try:return decrypt_secret(token)
+    except Exception:return ''
 
 def send_telegram(token, chat_id, message):
     if not token or not chat_id:raise ValueError('Telegram token and chat ID are required.')
@@ -708,36 +698,68 @@ def send_telegram(token, chat_id, message):
     req=urllib.request.Request(f'https://api.telegram.org/bot{token}/sendMessage',data=data,method='POST')
     with urllib.request.urlopen(req,timeout=8) as r:r.read()
 
+def _email_recipients(to_addr):
+    recipients=[x.strip() for x in str(to_addr or '').replace(';', ',').split(',') if x.strip()]
+    if not recipients:
+        raise ValueError('SMTP host and recipient are required.')
+    return recipients
 
-def send_email(host,port,user,password,to_addr,subject,body):
-    if not host or not to_addr:raise ValueError('SMTP host and recipient are required.')
-    msg=EmailMessage();msg['Subject']=subject;msg['From']=user or 'network-automation@localhost';msg['To']=to_addr;msg.set_content(body)
-    with smtplib.SMTP(host,int(port),timeout=10) as s:
-        s.ehlo()
-        try:s.starttls();s.ehlo()
+def send_email(host,port,user,password,to_addr,subject,body,attachment_path=None):
+    if not host:raise ValueError('SMTP host and recipient are required.')
+    recipients=_email_recipients(to_addr)
+    msg=EmailMessage();msg['Subject']=subject;msg['From']=user or 'network-automation@localhost';msg['To']=', '.join(recipients);msg.set_content(body)
+    if attachment_path:
+        path=Path(attachment_path)
+        if not path.is_file():raise FileNotFoundError('Report attachment not found: '+str(path))
+        msg.add_attachment(path.read_bytes(),maintype='application',subtype='vnd.openxmlformats-officedocument.spreadsheetml.sheet',filename=path.name)
+    with smtplib.SMTP(host,int(port),timeout=20) as server:
+        server.ehlo()
+        try:server.starttls();server.ehlo()
         except Exception:pass
-        if user:s.login(user,password)
-        s.send_message(msg)
+        if user:server.login(user,password)
+        server.send_message(msg,to_addrs=recipients)
 
+def _notification_tables():
+    c=_connect()
+    try:
+        c.execute("CREATE TABLE IF NOT EXISTS notification_log(id INTEGER PRIMARY KEY AUTOINCREMENT,event_key TEXT,channel TEXT,status TEXT,detail TEXT,created_at TEXT)");c.commit()
+    finally:c.close()
 
+def _event_allowed(alert_type):
+    t=(alert_type or '').lower()
+    if 'offline' in t:return get_setting('notify_offline','1')=='1'
+    if 'drift' in t:return get_setting('notify_drift','1')=='1'
+    if 'security' in t:return get_setting('notify_security','1')=='1'
+    if 'daily audit' in t:return get_setting('notify_daily_audit','1')=='1'
+    return True
 
-def notify_alert(ip, alert_type, message, severity='Warning'):
-    """Best-effort alert notification. Secrets are never persisted to SQLite."""
-    if get_setting('notify_enabled','0') != '1':
-        return []
-    text=f"[{severity}] {alert_type}\nDevice: {ip}\n{message}\nTime: {_now()}"
-    results=[]
-    token=SESSION_SECRETS.get('telegram_token','')
-    chat=get_setting('telegram_chat_id','')
-    if token and chat:
-        try:send_telegram(token,chat,text);results.append('Telegram sent')
-        except Exception as exc:results.append('Telegram failed: '+str(exc))
-    host=get_setting('smtp_host','');to=get_setting('smtp_to','')
-    if host and to:
-        try:
-            send_email(host,get_setting('smtp_port','587'),get_setting('smtp_user',''),SESSION_SECRETS.get('smtp_password',''),to,f'Network Alert: {alert_type}',text);results.append('Email sent')
-        except Exception as exc:results.append('Email failed: '+str(exc))
+def notify_alert(ip, alert_type, message, severity='Warning', event_key=None):
+    if get_setting('notify_enabled','0')!='1' or not _event_allowed(alert_type):return []
+    _notification_tables(); key=event_key or f'{ip}|{alert_type}|{message}'
+    cooldown=max(0,int(get_setting('notify_cooldown_min','60') or 60))
+    c=_connect()
+    try:
+        old=c.execute("SELECT created_at FROM notification_log WHERE event_key=? AND status='SENT' ORDER BY id DESC LIMIT 1",(key,)).fetchone()
+        if old and cooldown:
+            try:
+                if (datetime.now()-datetime.strptime(old['created_at'],'%Y-%m-%d %H:%M:%S')).total_seconds()<cooldown*60:return ['Cooldown: skipped duplicate']
+            except Exception:pass
+    finally:c.close()
+    text=f"[{severity}] {alert_type}\nDevice: {ip}\n{message}\nTime: {_now()}"; results=[]
+    token=_load_secret('telegram_token_enc') or SESSION_SECRETS.get('telegram_token',''); chat=get_setting('telegram_chat_id','')
+    if get_setting('notify_telegram','1')=='1' and token and chat:
+        try:send_telegram(token,chat,text);results.append('Telegram sent');_log_notification(key,'Telegram','SENT','OK')
+        except Exception as exc:results.append('Telegram failed: '+str(exc));_log_notification(key,'Telegram','FAILED',str(exc))
+    host=get_setting('smtp_host','');to=get_setting('smtp_to','');pwd=_load_secret('smtp_password_enc') or SESSION_SECRETS.get('smtp_password','')
+    if get_setting('notify_email','0')=='1' and host and to:
+        try:send_email(host,get_setting('smtp_port','587'),get_setting('smtp_user',''),pwd,to,f'Network Alert: {alert_type}',text);results.append('Email sent');_log_notification(key,'Email','SENT','OK')
+        except Exception as exc:results.append('Email failed: '+str(exc));_log_notification(key,'Email','FAILED',str(exc))
     return results
+
+def _log_notification(key,channel,status,detail):
+    c=_connect()
+    try:c.execute('INSERT INTO notification_log(event_key,channel,status,detail,created_at) VALUES(?,?,?,?,?)',(key,channel,status,detail[:1000],_now()));c.commit()
+    finally:c.close()
 
 def open_device_detail(parent, device_id):
     ensure_advanced_tables();conn=_connect()
@@ -764,4 +786,4 @@ def open_device_detail(parent, device_id):
     table_tab('Cảnh báo',('created_at','severity','alert_type','message','status'),alerts)
 
 
-__all__=['SNMPMonitorPage','NetworkTopologyPage','SSHAutomationPage','NotificationsPage','open_device_detail','ensure_advanced_tables','snmp_get','notify_alert']
+__all__=['SNMPMonitorPage','NetworkTopologyPage','SSHAutomationPage','NotificationsPage','open_device_detail','ensure_advanced_tables','snmp_get','notify_alert','send_email']

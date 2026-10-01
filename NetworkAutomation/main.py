@@ -1,10 +1,17 @@
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from datetime import datetime
+from dataclasses import replace
 import threading
 import time
 import ipaddress
+import json
+import os
+from pathlib import Path
 import pandas as pd
+import logging
+import traceback
+from app_runtime import resource_path, setup_logging, LOG_DIR
 
 from modules.network_scan import scan_network
 from modules.ping_check import ping_multiple
@@ -45,7 +52,7 @@ from modules.advanced_pages import (
     NetworkTopologyPage,
     SSHAutomationPage,
     NotificationsPage,
-    ensure_advanced_tables,
+    ensure_advanced_tables, _connect,
 )
 from modules.nms_v2 import (
     NOCDashboardPage, AutoDiscoveryPage, MultiPortMonitorPage, BackupSchedulerPage, NetworkHealthPage,
@@ -70,8 +77,12 @@ from modules.nms_v11 import ensure_v11_tables, JobQueueEngine, StableCorePage
 from modules.nms_v12 import ensure_v12_tables, SNMPv3CredentialsPage, VendorDriverPage, SecureSNMPDiagnosticsPage
 
 
-from modules.auto_ip import AutomationEngine
+from modules.auto_ip import AutomationEngine, load_options, parse_text, parse_excel
 from modules.auto_ip_page import AutoIPPage
+from modules.daily_audit_page import DailyAuditPage
+from modules.security_audit import SecurityAuditPage
+from modules.auto_audit_scheduler import AutoAuditSchedulerEngine
+from modules.server_monitor import ServerMonitorPage, ensure_server_monitor_tables
 
 
 class NetworkAutomationApp:
@@ -182,6 +193,7 @@ class NetworkAutomationApp:
         self.monitoring_service = MonitoringService(self.root, self.add_activity)
         self.job_queue_engine = JobQueueEngine()
         self.root_cause_engine = RootCauseEngine(self.root, self.add_activity)
+        self.auto_audit_scheduler = AutoAuditSchedulerEngine(self.root, self.add_activity)
         audit(self.session_user.get('username'), self.current_role, 'Mở ứng dụng', 'Network Automation', 'Khởi tạo phiên làm việc')
         self.root.protocol('WM_DELETE_WINDOW', self.on_close)
 
@@ -315,81 +327,49 @@ class NetworkAutomationApp:
         menu_groups = [
             ("TỔNG QUAN", [
                 ("Tổng quan", self.show_dashboard),
-                ("Trung tâm giám sát NOC", self.show_noc_dashboard),
-                ("SLA & Độ sẵn sàng", self.show_sla_availability),
+                ("Trung tâm NOC", self.show_noc_dashboard),
             ]),
-            ("KHÁM PHÁ & GIÁM SÁT", [
-                ("Tự động phát hiện", self.show_auto_discovery),
-                ("Quét mạng", self.show_network_scan),
-                ("Giám sát Ping", self.show_ping_monitor),
-                ("Sức khỏe mạng", self.show_network_health),
-                ("Giám sát SNMP", self.show_snmp_monitor),
-                ("Chẩn đoán SNMP v2c/v3", self.show_secure_snmp_diagnostics),
-                ("CPU / RAM SNMP", self.show_resource_monitor),
-                ("Giám sát cổng nâng cao", self.show_advanced_port_monitor),
-                ("Giám sát nhiều cổng", self.show_multi_port_monitor),
-                ("Biểu đồ lịch sử", self.show_history_charts),
-                ("Phân tích dung lượng", self.show_capacity_planning),
-            ]),
-            ("QUẢN LÝ MẠNG", [
+            ("THIẾT BỊ & IP", [
                 ("Quản lý thiết bị", self.show_device_manager),
                 ("Quản lý IP / MAC", self.show_ip_mac_manager),
-                ("Thiết bị mạng", self.show_network_devices),
-                ("Hồ sơ thiết bị theo hãng", self.show_device_profiles),
-                ("Vendor Driver Engine", self.show_vendor_drivers),
-                ("Site / Nhóm / VLAN", self.show_organization),
-                ("Sơ đồ mạng", self.show_network_topology),
-                ("Tự dựng Topology LLDP/CDP", self.show_auto_topology),
-                ("Phụ thuộc thiết bị", self.show_device_dependencies),
-                ("Dịch vụ & Mức ảnh hưởng", self.show_service_impact),
+                ("Khám phá mạng", self.show_discovery_hub),
+            ]),
+            ("GIÁM SÁT", [
+                ("Giám sát thiết bị", self.show_monitoring_hub),
+                ("Application / Server", self.show_server_monitor),
+                ("Sức khỏe mạng", self.show_network_health),
+                ("SLA & Độ sẵn sàng", self.show_sla_availability),
             ]),
             ("TỰ ĐỘNG HÓA", [
-                ("Tự động IP/Excel", self.show_auto_ip),
-                ("Tự động hóa SSH", self.show_ssh_automation),
-                ("Truy cập từ xa", self.show_remote_service),
-                ("Sao lưu cấu hình", self.show_backup_config),
-                ("Lịch sao lưu bảo mật", self.show_secure_backup_scheduler),
-                ("So sánh cấu hình", self.show_config_compare),
-                ("Lịch tác vụ", self.show_scheduler),
-                ("Khôi phục cấu hình", self.show_restore_config),
+                ("Trung tâm tự động hóa", self.show_automation_hub),
+                ("Daily Audit Windows", self.show_daily_audit),
+                ("Baseline & Security", self.show_security_audit),
             ]),
-            ("CẢNH BÁO & BÁO CÁO", [
+            ("SỰ CỐ & BÁO CÁO", [
                 ("Cảnh báo", self.show_alerts),
-                ("Quy tắc cảnh báo", self.show_alert_rules),
-                ("Lịch bảo trì", self.show_maintenance_windows),
                 ("Trung tâm sự cố", self.show_incident_center),
-                ("Phân tích nguyên nhân gốc", self.show_root_cause_analysis),
-                ("Thông báo", self.show_notifications),
                 ("Báo cáo", self.show_reports),
-                ("Nhật ký hệ thống", self.show_system_logs),
-                ("Nhật ký Audit", self.show_audit_log),
             ]),
-            ("HỆ THỐNG", [
-                ("Quản lý Credential", self.show_credential_manager),
-                ("Credential SNMPv3", self.show_snmpv3_credentials),
-                ("Người dùng & Phân quyền", self.show_user_roles),
+            ("QUẢN TRỊ", [
+                ("Trung tâm quản trị", self.show_admin_hub),
+                ("Notification Center", self.show_notifications),
                 ("Cài đặt", self.show_settings),
-                ("Dịch vụ giám sát nền", self.show_monitoring_service),
-                ("Sức khỏe hệ thống", self.show_stable_core),
             ]),
         ]
 
         # Phân quyền menu theo vai trò đăng nhập.
         if self.current_role == "Viewer":
             allowed = {
-                "Tổng quan", "Trung tâm giám sát NOC", "Quét mạng", "Giám sát Ping",
-                "Sức khỏe mạng", "Giám sát SNMP", "Chẩn đoán SNMP v2c/v3", "CPU / RAM SNMP",
-                "Giám sát cổng nâng cao", "Giám sát nhiều cổng", "Biểu đồ lịch sử",
-                "Sơ đồ mạng", "Tự dựng Topology LLDP/CDP", "Cảnh báo", "Báo cáo", "Nhật ký hệ thống",
-                "SLA & Độ sẵn sàng", "Phân tích dung lượng", "Trung tâm sự cố",
-                "Phụ thuộc thiết bị", "Dịch vụ & Mức ảnh hưởng", "Phân tích nguyên nhân gốc", "Vendor Driver Engine"
+                "Tổng quan", "Trung tâm NOC", "Khám phá mạng", "Giám sát thiết bị", "Application / Server",
+                "Sức khỏe mạng", "SLA & Độ sẵn sàng", "Cảnh báo",
+                "Trung tâm sự cố", "Báo cáo"
             }
-            menu_groups = [(g, [(t,c) for t,c in items if t in allowed]) for g,items in menu_groups]
-            menu_groups = [(g,items) for g,items in menu_groups if items]
+            menu_groups = [(g, [(t, c) for t, c in items if t in allowed]) for g, items in menu_groups]
+            menu_groups = [(g, items) for g, items in menu_groups if items]
         elif self.current_role == "Operator":
-            blocked = {"Quản lý Credential", "Credential SNMPv3", "Người dùng & Phân quyền", "Cài đặt", "Khôi phục cấu hình", "Nhật ký Audit", "Dịch vụ giám sát nền"}
-            menu_groups = [(g, [(t,c) for t,c in items if t not in blocked]) for g,items in menu_groups]
-            menu_groups = [(g,items) for g,items in menu_groups if items]
+            blocked = {"Trung tâm quản trị", "Cài đặt"}
+            menu_groups = [(g, [(t, c) for t, c in items if t not in blocked]) for g, items in menu_groups]
+            menu_groups = [(g, items) for g, items in menu_groups if items]
 
         self.sidebar_groups = {}
 
@@ -554,184 +534,339 @@ class NetworkAutomationApp:
         except Exception:
             pass
 
+    def _show_compact_hub(self, title, subtitle, actions):
+        self.current_page = title
+        self.clear_content()
+        self.set_page_title(title, subtitle)
+
+        wrap = tk.Frame(self.content, bg="#F3F4F6")
+        wrap.pack(fill="both", expand=True, padx=25, pady=(4, 20))
+
+        tk.Label(
+            wrap,
+            text="Chọn công cụ cần sử dụng",
+            bg="#F3F4F6",
+            fg="#6B7280",
+            font=("Segoe UI", 10),
+        ).pack(anchor="w", pady=(0, 10))
+
+        grid = tk.Frame(wrap, bg="#F3F4F6")
+        grid.pack(fill="both", expand=True)
+
+        visible = []
+        for item in actions:
+            label, desc, command, roles = item
+            if roles and self.current_role not in roles:
+                continue
+            visible.append((label, desc, command))
+
+        columns = 3
+        for i, (label, desc, command) in enumerate(visible):
+            row, col = divmod(i, columns)
+            grid.grid_columnconfigure(col, weight=1, uniform="hub")
+            card = tk.Frame(grid, bg="white", bd=1, relief="solid", cursor="hand2")
+            card.grid(row=row, column=col, sticky="nsew", padx=6, pady=6, ipadx=6, ipady=6)
+            tk.Label(card, text=label, bg="white", fg="#111827",
+                     font=("Segoe UI", 12, "bold"), anchor="w").pack(fill="x", padx=14, pady=(12, 4))
+            tk.Label(card, text=desc, bg="white", fg="#6B7280",
+                     font=("Segoe UI", 9), anchor="w", justify="left", wraplength=290).pack(fill="x", padx=14, pady=(0, 10))
+            btn = ttk.Button(card, text="Mở", command=command)
+            btn.pack(anchor="w", padx=14, pady=(0, 12))
+            for widget in (card,):
+                widget.bind("<Button-1>", lambda _e, cmd=command: cmd())
+
+    def show_discovery_hub(self):
+        self._show_compact_hub(
+            "Khám phá mạng",
+            "Quét, phát hiện, tổ chức và dựng sơ đồ thiết bị mạng.",
+            [
+                ("Tự động phát hiện", "Phát hiện thiết bị mới trong mạng.", self.show_auto_discovery, None),
+                ("Quét mạng", "Quét IP và trạng thái thiết bị theo dải mạng.", self.show_network_scan, None),
+                ("Thiết bị mạng", "Danh sách và thông tin thiết bị mạng.", self.show_network_devices, {"Admin", "Operator"}),
+                ("Site / Nhóm / VLAN", "Tổ chức thiết bị theo site, nhóm và VLAN.", self.show_organization, {"Admin", "Operator"}),
+                ("Sơ đồ mạng", "Xem topology mạng hiện tại.", self.show_network_topology, None),
+                ("Topology LLDP/CDP", "Tự dựng topology từ LLDP/CDP.", self.show_auto_topology, None),
+                ("Hồ sơ thiết bị", "Quản lý profile thiết bị theo hãng.", self.show_device_profiles, {"Admin", "Operator"}),
+                ("Vendor Driver Engine", "Driver/logic theo hãng thiết bị.", self.show_vendor_drivers, None),
+            ],
+        )
+
+    def show_monitoring_hub(self):
+        self._show_compact_hub(
+            "Giám sát thiết bị",
+            "Một nơi cho Ping, SNMP, tài nguyên, cổng, lịch sử và phân tích dung lượng.",
+            [
+                ("Giám sát Ping", "Theo dõi độ trễ và trạng thái kết nối.", self.show_ping_monitor, None),
+                ("Giám sát SNMP", "Theo dõi thiết bị qua SNMP.", self.show_snmp_monitor, None),
+                ("SNMP v2c/v3 Diagnostics", "Chẩn đoán kết nối và credential SNMP.", self.show_secure_snmp_diagnostics, None),
+                ("CPU / RAM", "Giám sát tài nguyên qua SNMP.", self.show_resource_monitor, None),
+                ("Giám sát cổng", "Theo dõi trạng thái và chỉ số cổng nâng cao.", self.show_advanced_port_monitor, None),
+                ("Nhiều cổng", "Theo dõi nhiều cổng trên nhiều thiết bị.", self.show_multi_port_monitor, None),
+                ("Biểu đồ lịch sử", "Xem dữ liệu lịch sử và xu hướng.", self.show_history_charts, None),
+                ("Phân tích dung lượng", "Đánh giá xu hướng sử dụng tài nguyên.", self.show_capacity_planning, None),
+                ("Phụ thuộc thiết bị", "Theo dõi dependency giữa các thiết bị.", self.show_device_dependencies, None),
+                ("Dịch vụ & ảnh hưởng", "Xem mức ảnh hưởng của sự cố đến dịch vụ.", self.show_service_impact, None),
+            ],
+        )
+
+    def show_server_monitor(self):
+        self.current_page = "Application / Server"
+        self.clear_content()
+        self.set_page_title("Application / Server Monitor", "Giám sát ứng dụng, port và sức khỏe Windows Server")
+        ServerMonitorPage(self.content, activity_callback=lambda msg: log_activity(self.current_user, msg))
+
+    def show_automation_hub(self):
+        self._show_compact_hub(
+            "Trung tâm tự động hóa",
+            "Các tác vụ vận hành, sao lưu, SSH, lịch chạy và khôi phục.",
+            [
+                ("Tự động IP / Excel", "Sinh và xử lý kế hoạch IP từ Excel.", self.show_auto_ip, {"Admin", "Operator"}),
+                ("Tự động hóa SSH", "Thực thi tác vụ SSH trên thiết bị.", self.show_ssh_automation, {"Admin", "Operator"}),
+                ("Truy cập từ xa", "Mở hoặc quản lý truy cập dịch vụ từ xa.", self.show_remote_service, {"Admin", "Operator"}),
+                ("Sao lưu cấu hình", "Sao lưu cấu hình thiết bị.", self.show_backup_config, {"Admin", "Operator"}),
+                ("Lịch sao lưu bảo mật", "Lập lịch sao lưu có kiểm soát.", self.show_secure_backup_scheduler, {"Admin", "Operator"}),
+                ("So sánh cấu hình", "So sánh các bản cấu hình.", self.show_config_compare, {"Admin", "Operator"}),
+                ("Lịch tác vụ", "Lập lịch các job tự động.", self.show_scheduler, {"Admin", "Operator"}),
+                ("Daily Audit Windows", "Audit Windows Server hằng ngày.", self.show_daily_audit, {"Admin", "Operator"}),
+                ("Baseline & Security", "Phát hiện config drift và kiểm tra security posture read-only.", self.show_security_audit, {"Admin", "Operator"}),
+                ("Khôi phục cấu hình", "Khôi phục cấu hình từ bản sao lưu.", self.show_restore_config, {"Admin"}),
+            ],
+        )
+
+    def show_admin_hub(self):
+        self._show_compact_hub(
+            "Trung tâm quản trị",
+            "Credential, người dùng, nhật ký, dịch vụ nền và cấu hình hệ thống.",
+            [
+                ("Quản lý Credential", "Lưu và quản lý credential thiết bị.", self.show_credential_manager, {"Admin"}),
+                ("Credential SNMPv3", "Quản lý thông tin xác thực SNMPv3.", self.show_snmpv3_credentials, {"Admin"}),
+                ("Người dùng & Phân quyền", "Quản lý tài khoản và vai trò.", self.show_user_roles, {"Admin"}),
+                ("Nhật ký hệ thống", "Xem log hoạt động hệ thống.", self.show_system_logs, {"Admin", "Operator", "Viewer"}),
+                ("Nhật ký Audit", "Xem lịch sử audit và thao tác quản trị.", self.show_audit_log, {"Admin"}),
+                ("Dịch vụ giám sát nền", "Quản lý monitoring service chạy nền.", self.show_monitoring_service, {"Admin"}),
+                ("Sức khỏe hệ thống", "Kiểm tra lõi và trạng thái ứng dụng.", self.show_stable_core, {"Admin", "Operator"}),
+            ],
+        )
+
+    def _daily_audit_dashboard_summary(self):
+        try:
+            cfg_path = resource_path("tools", "daily_audit", "config.json")
+            if not cfg_path.exists():
+                return "Chưa cấu hình", "Mở Daily Audit để thiết lập", None
+            cfg = json.loads(cfg_path.read_text(encoding="utf-8-sig"))
+            report_dir = Path(os.path.expandvars(str(cfg.get("ReportDirectory", r"C:\\DailyAudit\\Reports"))))
+            files = sorted(report_dir.glob("daily_audit_*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
+            if not files:
+                return "Chưa có báo cáo", "Chạy Daily Audit để tạo báo cáo đầu tiên", None
+            data = json.loads(files[0].read_text(encoding="utf-8-sig"))
+            high = int(data.get("High", 0) or 0)
+            warn = int(data.get("Warn", 0) or 0)
+            review = int(data.get("Review", 0) or 0)
+            status = "Ổn định" if high == 0 and warn == 0 else (f"HIGH: {high}" if high else f"WARN: {warn}")
+            detail = f"{warn} WARN • {review} REVIEW • {data.get('GeneratedAt', files[0].name)}"
+            return status, detail, files[0]
+        except Exception:
+            return "Không đọc được", "Có thể mở Daily Audit để kiểm tra chi tiết", None
+
     # ======================================================
     # DASHBOARD
     # ======================================================
 
     def show_dashboard(self):
-
+        """One-Click NOC home: input IP/Excel once, then run the existing safe audit pipeline."""
         self.current_page = "Tổng quan"
-
         self.clear_content()
+        self.set_page_title("One-Click NOC", "Dán IP hoặc chọn Excel → kiểm tra toàn bộ → xuất Excel / gửi Gmail")
 
-        self.set_page_title(
-            "Network Automation Tool\nIT Infrastructure Management System\nVersion 0.01"
-        )
+        quick = tk.Frame(self.content, bg="white", bd=1, relief="solid")
+        quick.pack(fill="x", padx=25, pady=(16, 8))
+        tk.Label(quick, text="KIỂM TRA NHANH TOÀN BỘ", bg="white", fg="#111827",
+                 font=("Segoe UI", 14, "bold")).pack(anchor="w", padx=16, pady=(12, 2))
+        tk.Label(quick, text="Mỗi IP chỉ chạy các phép kiểm tra mà thiết bị/hồ sơ hỗ trợ; tác vụ thiếu SNMP/SSH sẽ SKIP thay vì làm hỏng cả lượt.",
+                 bg="white", fg="#6B7280", font=("Segoe UI", 9)).pack(anchor="w", padx=16, pady=(0, 8))
 
-        cards_frame = tk.Frame(
-            self.content,
-            bg="#F3F4F6"
-        )
+        self.quick_ip_text = tk.Text(quick, height=4, font=("Consolas", 10), wrap="word")
+        self.quick_ip_text.pack(fill="x", padx=16)
+        self.quick_ip_text.insert("1.0", "")
 
-        cards_frame.pack(
-            fill="x",
-            padx=25,
-            pady=20
-        )
+        actions = tk.Frame(quick, bg="white"); actions.pack(fill="x", padx=16, pady=8)
+        tk.Button(actions, text="Chọn Excel IP", command=self._quick_choose_excel, bg="#E5E7EB", relief="flat", padx=12, pady=7).pack(side="left")
+        self.quick_excel_path = ""
+        self.quick_email_var = tk.BooleanVar(value=True)
+        tk.Checkbutton(actions, text="Gửi Gmail/Email khi xong", variable=self.quick_email_var, bg="white").pack(side="left", padx=12)
+        self.quick_authorized_var = tk.BooleanVar(value=False)
+        tk.Checkbutton(actions, text="Tôi có quyền kiểm tra các IP này", variable=self.quick_authorized_var, bg="white").pack(side="left", padx=8)
+        self.quick_run_btn = tk.Button(actions, text="KIỂM TRA TOÀN BỘ", command=self._quick_run_all,
+                                       bg="#2563EB", fg="white", activebackground="#1D4ED8", activeforeground="white",
+                                       relief="flat", padx=18, pady=8, font=("Segoe UI", 10, "bold"))
+        self.quick_run_btn.pack(side="right")
 
+        self.quick_status_var = tk.StringVar(value="Sẵn sàng • Dán IP hoặc chọn file Excel")
+        tk.Label(quick, textvariable=self.quick_status_var, bg="white", fg="#1D4ED8", font=("Segoe UI", 9)).pack(anchor="w", padx=16, pady=(0, 4))
+        self.quick_progress = ttk.Progressbar(quick, mode="determinate")
+        self.quick_progress.pack(fill="x", padx=16, pady=(0, 12))
+
+        # Keep the operational overview directly below the one-click launcher.
+        overview = tk.Frame(self.content, bg="#F3F4F6")
+        overview.pack(fill="both", expand=True)
+        old_content = self.content
+        self.content = overview
         try:
+            self._show_dashboard_legacy()
+        finally:
+            self.content = old_content
+            self.current_page = "Tổng quan"
+        self._quick_poll()
 
-            stats = device_manager.statistics()
+    def _quick_choose_excel(self):
+        path = filedialog.askopenfilename(parent=self.root, title="Chọn file Excel IP", filetypes=[("Excel", "*.xlsx")])
+        if not path:
+            return
+        try:
+            targets, duplicates = parse_excel(path)
+        except Exception as exc:
+            messagebox.showerror("One-Click NOC", str(exc), parent=self.root); return
+        self.quick_excel_path = path
+        self.quick_ip_text.delete("1.0", "end")
+        self.quick_ip_text.insert("1.0", "\n".join(t.ip for t in targets))
+        self.quick_status_var.set(f"Đã nạp {len(targets)} IP từ Excel; loại {duplicates} IP trùng.")
 
-            total_devices = stats.get(
-                "total",
-                0
+    def _quick_run_all(self):
+        try:
+            if not self.quick_authorized_var.get():
+                raise PermissionError("Hãy xác nhận bạn có quyền kiểm tra các IP này.")
+            text_value = self.quick_ip_text.get("1.0", "end").strip()
+            if not text_value:
+                raise ValueError("Dán ít nhất một IP hoặc chọn file Excel.")
+            targets, duplicates = parse_text(text_value)
+            if not targets:
+                raise ValueError("Không có IP hợp lệ.")
+            if not hasattr(self, "auto_ip_engine"):
+                self.auto_ip_engine = AutomationEngine()
+            if self.auto_ip_engine.running:
+                raise RuntimeError("Một lượt kiểm tra đang chạy.")
+            base_options = load_options()
+            # Options is an immutable (frozen) dataclass. Build a One-Click copy
+            # instead of assigning to its fields in-place.
+            options = replace(
+                base_options,
+                ping=True,
+                tcp=True,
+                snmp=True,
+                resources=True,
+                interfaces=True,
+                topology=True,
+                alerts=True,
+                report=True,
+                repeat=False,
+                notifications=True,
+                email_report_after_run=bool(self.quick_email_var.get()),
             )
+            self.auto_ip_engine.start(targets, options, self.session_user, authorized=True)
+            self.quick_status_var.set(f"Đang kiểm tra {len(targets)} IP" + (f" • bỏ {duplicates} IP trùng" if duplicates else ""))
+            self.add_activity(f"One-Click NOC: bắt đầu kiểm tra {len(targets)} IP")
+        except Exception as exc:
+            messagebox.showerror("One-Click NOC", str(exc), parent=self.root)
 
-            online_devices = stats.get(
-                "online",
-                0
-            )
-
-            offline_devices = stats.get(
-                "offline",
-                0
-            )
-
+    def _quick_poll(self):
+        if self.current_page != "Tổng quan" or not hasattr(self, "quick_status_var"):
+            return
+        try:
+            if hasattr(self, "auto_ip_engine"):
+                snap = self.auto_ip_engine.snapshot()
+                total = max(int(snap.get("total") or 0), 1)
+                done = int(snap.get("done") or 0)
+                self.quick_progress.configure(maximum=total, value=min(done, total))
+                state = snap.get("status", "Ready")
+                msg = snap.get("message", "")
+                report = snap.get("report_path", "")
+                suffix = f" • Báo cáo: {Path(report).name}" if report else ""
+                self.quick_status_var.set(f"{state} • {done}/{int(snap.get('total') or 0)} IP" + (f" • {msg}" if msg else "") + suffix)
+                self.quick_run_btn.configure(state="disabled" if snap.get("running") else "normal")
         except Exception:
+            pass
+        self.root.after(700, self._quick_poll)
 
-            total_devices = 0
-            online_devices = 0
-            offline_devices = 0
+    def _show_dashboard_legacy(self):
+        """NOC-first dashboard: surface problems before navigation."""
+        self.current_page = "Tổng quan"
+        self.clear_content()
+        self.set_page_title("Tổng quan NOC", "Tình trạng hạ tầng, cảnh báo và công việc cần xử lý")
 
+        # Collect dashboard data defensively so a partial schema never blocks startup.
+        data = {"total": 0, "online": 0, "offline": 0, "alerts": 0, "incidents": 0}
+        recent_alerts, problem_devices, recent_incidents = [], [], []
+        try:
+            c = _connect()
+            try:
+                data["total"] = c.execute("SELECT COUNT(*) FROM network_devices").fetchone()[0]
+                data["online"] = c.execute("SELECT COUNT(*) FROM network_devices WHERE LOWER(COALESCE(status,''))='online'").fetchone()[0]
+                data["offline"] = c.execute("SELECT COUNT(*) FROM network_devices WHERE LOWER(COALESCE(status,''))='offline'").fetchone()[0]
+                data["alerts"] = c.execute("SELECT COUNT(*) FROM alerts WHERE LOWER(COALESCE(status,''))<>'closed'").fetchone()[0]
+                recent_alerts = c.execute("SELECT created_at,severity,ip,alert_type,message FROM alerts WHERE LOWER(COALESCE(status,''))<>'closed' ORDER BY id DESC LIMIT 8").fetchall()
+                problem_devices = c.execute("SELECT name,ip,device_type,status FROM network_devices WHERE LOWER(COALESCE(status,''))<>'online' ORDER BY updated_at DESC LIMIT 8").fetchall()
+                try:
+                    data["incidents"] = c.execute("SELECT COUNT(*) FROM incidents WHERE LOWER(COALESCE(status,'')) NOT IN ('closed','resolved')").fetchone()[0]
+                    recent_incidents = c.execute("SELECT last_seen,severity,host,title,status FROM incidents WHERE LOWER(COALESCE(status,'')) NOT IN ('closed','resolved') ORDER BY id DESC LIMIT 6").fetchall()
+                except Exception:
+                    pass
+            finally:
+                c.close()
+        except Exception:
+            pass
+
+        top = tk.Frame(self.content, bg="#F3F4F6")
+        top.pack(fill="x", padx=25, pady=(18, 8))
         cards = [
-
-            (
-                "Total Devices",
-                str(total_devices)
-            ),
-
-            (
-                "Online",
-                str(online_devices)
-            ),
-
-            (
-                "Offline",
-                str(offline_devices)
-            ),
-
-            (
-                "Cảnh báo",
-                "0"
-            )
+            ("Thiết bị", data["total"], "Tất cả thiết bị đang quản lý"),
+            ("Online", data["online"], "Đang hoạt động"),
+            ("Offline", data["offline"], "Cần kiểm tra"),
+            ("Cảnh báo mở", data["alerts"], "Chưa đóng"),
+            ("Sự cố mở", data["incidents"], "Chưa xử lý xong"),
         ]
+        for title, value, note in cards:
+            card = tk.Frame(top, bg="white", bd=1, relief="solid")
+            card.pack(side="left", fill="both", expand=True, padx=4)
+            tk.Label(card, text=title, bg="white", fg="#6B7280", font=("Segoe UI", 9)).pack(anchor="w", padx=14, pady=(12, 2))
+            tk.Label(card, text=str(value), bg="white", fg="#111827", font=("Segoe UI", 22, "bold")).pack(anchor="w", padx=14)
+            tk.Label(card, text=note, bg="white", fg="#9CA3AF", font=("Segoe UI", 8)).pack(anchor="w", padx=14, pady=(0, 12))
 
-        for title, value in cards:
+        # Daily Audit is a first-class NOC signal.
+        audit_status, audit_detail, _audit_file = self._daily_audit_dashboard_summary()
+        audit = tk.Frame(self.content, bg="white", bd=1, relief="solid")
+        audit.pack(fill="x", padx=29, pady=6)
+        al = tk.Frame(audit, bg="white"); al.pack(side="left", fill="x", expand=True, padx=14, pady=10)
+        tk.Label(al, text="Daily Audit Windows", bg="white", fg="#111827", font=("Segoe UI", 11, "bold")).pack(anchor="w")
+        tk.Label(al, text=f"{audit_status}  •  {audit_detail}", bg="white", fg="#6B7280", font=("Segoe UI", 9)).pack(anchor="w", pady=(2, 0))
+        ttk.Button(audit, text="Chạy / Chi tiết", command=self.show_daily_audit).pack(side="right", padx=14, pady=10)
+        ttk.Button(audit, text="Trung tâm NOC", command=self.show_noc_dashboard).pack(side="right", pady=10)
 
-            card = tk.Frame(
-                cards_frame,
-                bg="white",
-                bd=1,
-                relief="solid"
-            )
+        body = tk.Frame(self.content, bg="#F3F4F6")
+        body.pack(fill="both", expand=True, padx=25, pady=(4, 16))
+        left = tk.Frame(body, bg="white", bd=1, relief="solid"); left.pack(side="left", fill="both", expand=True, padx=4)
+        right = tk.Frame(body, bg="white", bd=1, relief="solid"); right.pack(side="left", fill="both", expand=True, padx=4)
 
-            card.pack(
-                side="left",
-                fill="both",
-                expand=True,
-                padx=6
-            )
+        tk.Label(left, text="Cần chú ý", bg="white", fg="#111827", font=("Segoe UI", 12, "bold")).pack(anchor="w", padx=12, pady=(10, 6))
+        attention = ttk.Treeview(left, columns=("kind","target","detail"), show="headings", height=10)
+        for c,t,w in (("kind","Loại",100),("target","Thiết bị / IP",145),("detail","Chi tiết",330)):
+            attention.heading(c,text=t); attention.column(c,width=w,anchor="w")
+        attention.pack(fill="both", expand=True, padx=10, pady=(0,10))
+        for r in problem_devices:
+            attention.insert("","end",values=("Thiết bị",r[1] or r[0],f"{r[3] or 'Unknown'} • {r[2] or 'Chưa phân loại'}"))
+        for r in recent_alerts[:5]:
+            attention.insert("","end",values=(r[1] or "Cảnh báo",r[2] or "-",(r[4] or r[3] or "")[:80]))
+        if not attention.get_children(): attention.insert("","end",values=("OK","-","Không có mục bất thường đang hiển thị"))
 
-            tk.Label(
-                card,
-                text=title,
-                bg="white",
-                fg="#6B7280",
-                font=(
-                    "Segoe UI",
-                    10
-                )
-            ).pack(
-                anchor="w",
-                padx=20,
-                pady=(20, 5)
-            )
-
-            tk.Label(
-                card,
-                text=value,
-                bg="white",
-                fg="#111827",
-                font=(
-                    "Segoe UI",
-                    24,
-                    "bold"
-                )
-            ).pack(
-                anchor="w",
-                padx=20,
-                pady=(0, 20)
-            )
-
-        activity = tk.Frame(
-            self.content,
-            bg="white",
-            bd=1,
-            relief="solid"
-        )
-
-        activity.pack(
-            fill="both",
-            expand=True,
-            padx=31,
-            pady=10
-        )
-
-        tk.Label(
-            activity,
-            text="Hoạt động gần đây",
-            bg="white",
-            fg="#111827",
-            font=(
-                "Segoe UI",
-                14,
-                "bold"
-            )
-        ).pack(
-            anchor="w",
-            padx=20,
-            pady=15
-        )
-
-        log_text = tk.Text(
-            activity,
-            bg="white",
-            fg="#374151",
-            relief="flat",
-            font=(
-                "Consolas",
-                10
-            )
-        )
-
-        log_text.pack(
-            fill="both",
-            expand=True,
-            padx=20,
-            pady=(0, 20)
-        )
-
-        for log in self.activity_logs[-100:]:
-
-            log_text.insert(
-                tk.END,
-                log + "\n"
-            )
-
-        log_text.config(
-            state="disabled"
-        )
+        tk.Label(right, text="Sự cố & cảnh báo gần đây", bg="white", fg="#111827", font=("Segoe UI", 12, "bold")).pack(anchor="w", padx=12, pady=(10, 6))
+        events = ttk.Treeview(right, columns=("time","level","target","detail"), show="headings", height=10)
+        for c,t,w in (("time","Thời gian",125),("level","Mức",75),("target","Đích",110),("detail","Nội dung",300)):
+            events.heading(c,text=t); events.column(c,width=w,anchor="w")
+        events.pack(fill="both", expand=True, padx=10, pady=(0,10))
+        for r in recent_incidents:
+            events.insert("","end",values=(r[0] or "-",r[1] or "-",r[2] or "-",(r[3] or "")[:75]))
+        for r in recent_alerts:
+            events.insert("","end",values=(r[0] or "-",r[1] or "-",r[2] or "-",(r[4] or r[3] or "")[:75]))
+        if not events.get_children(): events.insert("","end",values=("-","OK","-","Chưa có cảnh báo hoặc sự cố đang mở"))
 
     # ======================================================
     # NETWORK SCAN PAGE
@@ -4750,7 +4885,7 @@ class NetworkAutomationApp:
 
         self.current_page = "Thông báo"
         self.clear_content()
-        self.set_page_title("Thông báo", "Cấu hình gửi cảnh báo qua Telegram và Email SMTP")
+        self.set_page_title("Notification Center", "Telegram/Email, lọc sự kiện và chống gửi cảnh báo trùng")
         self.notifications_page = NotificationsPage(self.content, activity_callback=self.add_activity)
 
     def show_remote_service(self):
@@ -4780,6 +4915,25 @@ class NetworkAutomationApp:
         self.clear_content()
         self.set_page_title("Cảnh báo", "Theo dõi thiết bị ngoại tuyến và cảnh báo vận hành")
         self.alerts_page = AlertsPage(self.content, activity_callback=self.add_activity)
+
+
+    def show_daily_audit(self):
+        if self.current_role == "Viewer":
+            messagebox.showwarning("Phân quyền", "Viewer không được chạy Daily Audit trên máy chủ.")
+            return
+        self.current_page = "Daily Audit Windows"
+        self.clear_content()
+        self.set_page_title("Daily Audit Windows", "Tự động kiểm tra Windows Server và tổng hợp cảnh báo vận hành/bảo mật")
+        self.daily_audit_page = DailyAuditPage(self.content, activity_callback=self.add_activity)
+
+    def show_security_audit(self):
+        if self.current_role == "Viewer":
+            messagebox.showwarning("Phân quyền", "Viewer chỉ được xem các màn hình giám sát.")
+            return
+        self.current_page = "Baseline & Security"
+        self.clear_content()
+        self.set_page_title("Configuration Baseline & Security Posture", "Phát hiện thay đổi cấu hình và audit security control ở chế độ read-only")
+        self.security_audit_page = SecurityAuditPage(self.content, activity_callback=self.add_activity)
 
     def show_reports(self):
 
@@ -4872,6 +5026,8 @@ class NetworkAutomationApp:
         except Exception: pass
         try: self.root_cause_engine.stop()
         except Exception: pass
+        try: self.auto_audit_scheduler.stop()
+        except Exception: pass
         try: audit(self.session_user.get('username'), self.current_role, 'Đóng ứng dụng', 'Network Automation', 'Kết thúc phiên làm việc')
         except Exception: pass
         self.root.destroy()
@@ -4918,10 +5074,21 @@ class NetworkAutomationApp:
 
 if __name__ == "__main__":
 
+    setup_logging()
     init_database()
+    ensure_server_monitor_tables()
     ensure_v5_tables()
 
     root = tk.Tk()
+
+    def _tk_exception(exc, val, tb):
+        logging.getLogger("tkinter").error("Unhandled Tk callback exception", exc_info=(exc, val, tb))
+        try:
+            messagebox.showerror("Network Automation", f"Đã xảy ra lỗi. Chi tiết được ghi tại:\n{LOG_DIR / 'network_automation.log'}\n\n{val}")
+        except Exception:
+            pass
+
+    root.report_callback_exception = _tk_exception
     root.withdraw()
 
     # Nếu chưa có tài khoản cục bộ, cho phép bootstrap bằng local-admin.

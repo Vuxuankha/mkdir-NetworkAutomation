@@ -9,6 +9,27 @@ from database.db import DB_PATH
 SNAPSHOT=Path(tempfile.gettempdir())/'network_automation_regression_snapshot.db'
 if Path(DB_PATH).exists(): shutil.copy2(DB_PATH,SNAPSHOT)
 checks=[]
+
+def bootstrap_schema():
+    from database.db import init_database
+    from modules.advanced_pages import ensure_advanced_tables
+    from modules.server_monitor import ensure_server_monitor_tables
+    from modules.nms_v3 import ensure_v3_tables
+    from modules.nms_v4 import ensure_v4_tables
+    from modules.nms_v5 import ensure_v5_tables
+    from modules.nms_v6 import ensure_v6_tables
+    from modules.nms_v7 import ensure_v7_tables
+    from modules.nms_v8 import ensure_v8_tables
+    from modules.nms_v9 import ensure_v9_tables
+    from modules.nms_v10 import ensure_v10_tables
+    from modules.nms_v11 import ensure_v11_tables
+    from modules.nms_v12 import ensure_v12_tables
+    init_database(); ensure_advanced_tables(); ensure_server_monitor_tables()
+    ensure_v3_tables(); ensure_v4_tables(); ensure_v5_tables(); ensure_v6_tables()
+    ensure_v7_tables(); ensure_v8_tables(); ensure_v9_tables(); ensure_v10_tables()
+    ensure_v11_tables(); ensure_v12_tables()
+
+bootstrap_schema()
 def check(name, fn):
     try: fn(); checks.append((name,'PASS',''))
     except Exception as e: checks.append((name,'FAIL',repr(e)))

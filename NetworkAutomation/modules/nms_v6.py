@@ -5,6 +5,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from database.db import DB_PATH
 from modules.advanced_pages import _connect, _now
+from app_runtime import hidden_subprocess_kwargs
 
 
 def ensure_v6_tables():
@@ -38,7 +39,7 @@ def audit(username, role, action, target='', detail=''):
 
 def _ping_windows(host, count=2, timeout_ms=1000):
     cmd=['ping','-n',str(count),'-w',str(timeout_ms),host] if os.name=='nt' else ['ping','-c',str(count),'-W','1',host]
-    p=subprocess.run(cmd,capture_output=True,text=True,errors='replace',timeout=max(5,count*2+2))
+    p=subprocess.run(cmd,capture_output=True,text=True,errors='replace',timeout=max(5,count*2+2),**hidden_subprocess_kwargs())
     out=(p.stdout or '')+'\n'+(p.stderr or '')
     loss=None; latency=None
     m=re.search(r'\((\d+)%\s*loss\)',out,re.I) or re.search(r'(\d+)%\s*(?:packet )?loss',out,re.I)

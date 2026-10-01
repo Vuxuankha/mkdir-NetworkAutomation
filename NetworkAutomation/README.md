@@ -26,3 +26,5 @@ python main.py
 - Lưu lịch sử chẩn đoán SNMP để hỗ trợ troubleshooting.
 
 Xem `HUONG_DAN_VI.md` và `QA_REPORT_V3.12.md` để biết chi tiết.
+
+Daily Audit Windows integrated: Event Logs, resources, services, firewall, ports, Defender, accounts, patches, backup.

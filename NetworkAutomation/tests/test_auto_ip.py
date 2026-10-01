@@ -330,6 +330,27 @@ class AutoIPTests(unittest.TestCase):
         self.assertTrue(Path(self.engine.snapshot()['report_path']).exists())
         self.assertNotIn('never-print-secret', path.read_bytes().decode('latin1'))
 
+    def test_email_report_forces_export_and_uses_notification_smtp(self):
+        import modules.advanced_pages as adv
+        adv.set_setting('smtp_host', 'smtp.example.test')
+        adv.set_setting('smtp_port', '587')
+        adv.set_setting('smtp_user', 'sender@example.test')
+        adv.set_setting('smtp_to', 'default@example.test')
+        with patch.object(adv, '_load_secret', return_value='secret'), patch.object(adv, 'send_email') as mail:
+            rows = self.run_job(email_report_after_run=True, report_email_to='receiver@gmail.com')
+        snap = self.engine.snapshot()
+        self.assertTrue(Path(snap['report_path']).exists())
+        self.assertTrue(any(r['task'] == 'email_report' and r['status'] == 'OK' for r in rows), rows)
+        self.assertEqual(mail.call_args.args[4], 'receiver@gmail.com')
+        self.assertEqual(Path(mail.call_args.kwargs['attachment_path']), Path(snap['report_path']))
+
+    def test_email_report_skips_when_smtp_not_configured(self):
+        import modules.advanced_pages as adv
+        adv.set_setting('smtp_host', '')
+        adv.set_setting('smtp_to', '')
+        rows = self.run_job(email_report_after_run=True)
+        self.assertTrue(any(r['task'] == 'email_report' and r['status'] == 'SKIP' for r in rows), rows)
+
     def test_unknown_driver_prefix_boundary(self):
         did = a.upsert_device(a.Target('192.0.2.1'))
         self.assertIsNone(a.select_driver(did, '', '1.3.6.1.4.1.999.1'))

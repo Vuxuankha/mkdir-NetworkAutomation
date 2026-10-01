@@ -29,8 +29,8 @@ from pathlib import Path
 
 from database import db
 from modules.nms_v5 import encrypt_secret, decrypt_secret
+from app_runtime import BACKUP_DIR, REPORT_DIR, DATABASE_DIR
 
-APP_DIR = Path(__file__).resolve().parents[1]
 MAX_TARGETS = 2048
 DEFAULT_PROFILE = 'Default'
 SYS = {'descr': '1.3.6.1.2.1.1.1.0', 'object': '1.3.6.1.2.1.1.2.0',
@@ -47,7 +47,7 @@ TASK_NAMES = {'inventory': 'Thi\u1ebft b\u1ecb', 'ping': 'Ping', 'tcp': 'C\u1ed5
               'interfaces': 'C\u1ed5ng / L\u01b0u l\u01b0\u1ee3ng', 'topology': 'LLDP / CDP',
               'backup': 'Sao l\u01b0u SSH', 'alerts': 'C\u1ea3nh b\u00e1o / S\u1ef1 c\u1ed1',
               'notifications': 'Th\u00f4ng b\u00e1o', 'report': 'B\u00e1o c\u00e1o Excel',
-              'engine': 'B\u1ed9 \u0111i\u1ec1u ph\u1ed1i'}
+              'email_report': 'G\u1eedi Gmail b\u00e1o c\u00e1o', 'engine': 'B\u1ed9 \u0111i\u1ec1u ph\u1ed1i'}
 
 
 def now():
@@ -264,6 +264,8 @@ class Options:
     device_budget: int = 120
     ports: str = '22,80,443'
     auto_start: bool = True
+    email_report_after_run: bool = False
+    report_email_to: str = ''
 
     def validate(self):
         if not (1 <= int(self.workers) <= 16 and 0.5 <= float(self.timeout) <= 10):
@@ -576,7 +578,7 @@ class NetworkAdapter:
         self.secret_values.append(secret)
         client = paramiko.SSHClient()
         client.load_system_host_keys()
-        known = APP_DIR / 'database' / 'known_hosts'
+        known = DATABASE_DIR / 'known_hosts'
         if known.exists():
             client.load_host_keys(str(known))
         client.set_missing_host_key_policy(paramiko.RejectPolicy())
@@ -609,7 +611,7 @@ class NetworkAdapter:
                 raise RuntimeError('Thi\u1ebft b\u1ecb kh\u00f4ng tr\u1ea3 c\u1ea5u h\u00ecnh h\u1ee3p l\u1ec7; kh\u00f4ng l\u01b0u backup.')
         finally:
             client.close()
-        path = APP_DIR / 'backups' / 'auto_ip' / (self.host.replace(':', '_') + '_' + datetime.now().strftime('%Y%m%d_%H%M%S') + '_' + uuid.uuid4().hex[:8] + '.cfg')
+        path = BACKUP_DIR / 'auto_ip' / (self.host.replace(':', '_') + '_' + datetime.now().strftime('%Y%m%d_%H%M%S') + '_' + uuid.uuid4().hex[:8] + '.cfg')
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, 'x', encoding='utf-8') as f:
             f.write(text)
@@ -817,6 +819,37 @@ def export_report(run_id, destination):
         wb.close()
         tmp.unlink(missing_ok=True)
     return destination
+
+
+def send_run_report_email(run_id, report_path, recipient_override=''):
+    """Send the finished Auto IP/Excel XLSX using Notification Center SMTP settings."""
+    from modules.advanced_pages import get_setting, _load_secret, SESSION_SECRETS, send_email
+    host = get_setting('smtp_host', '').strip()
+    port = get_setting('smtp_port', '587').strip() or '587'
+    user = get_setting('smtp_user', '').strip()
+    recipient = (recipient_override or get_setting('smtp_to', '')).strip()
+    password = _load_secret('smtp_password_enc') or SESSION_SECRETS.get('smtp_password', '')
+    if not host or not recipient:
+        raise SkipTask('Chưa cấu hình SMTP/Email nhận trong Notification Center.')
+    with connect() as c:
+        run = c.execute('SELECT * FROM autoip_runs WHERE id=?', (run_id,)).fetchone()
+        counts = {r['status']: r['n'] for r in c.execute(
+            "SELECT status,COUNT(*) AS n FROM autoip_steps WHERE run_id=? AND task NOT IN ('email_report') GROUP BY status", (run_id,))}
+    if not run:
+        raise ValueError('Không tìm thấy lượt chạy để gửi báo cáo.')
+    subject = f"NetworkAutomation - Auto IP/Excel - {run['status']} - {str(run_id)[:8]}"
+    body = (
+        'Báo cáo Auto IP/Excel đã hoàn tất.\n\n'
+        f"Lượt chạy: {run_id}\n"
+        f"Bắt đầu: {run['started_at'] or ''}\n"
+        f"Kết thúc: {run['finished_at'] or ''}\n"
+        f"Trạng thái: {run['status'] or ''}\n"
+        f"Số IP: {run['total'] or 0}\n"
+        f"OK: {counts.get('OK', 0)} | WARN: {counts.get('WARN', 0)} | ERROR: {counts.get('ERROR', 0)} | SKIP: {counts.get('SKIP', 0)}\n\n"
+        'File Excel chi tiết được đính kèm theo email này.'
+    )
+    send_email(host, port, user, password, recipient, subject, body, attachment_path=report_path)
+    return {'recipient': recipient, 'report_path': str(report_path), 'subject': subject}
 
 
 class AutomationEngine:
@@ -1043,17 +1076,27 @@ class AutomationEngine:
                 status = 'Stopped' if self.stop_event.is_set() else 'Completed'
                 with connect() as c:
                     c.execute('UPDATE autoip_runs SET status=?,finished_at=? WHERE id=?', (status, now(), run))
-                if options.report:
+                report_path = ''
+                if options.report or options.email_report_after_run:
                     # Export partial results even after Stop; this performs no network activity.
                     try:
-                        path = APP_DIR / 'reports' / 'auto_ip' / (datetime.now().strftime('%Y%m%d_%H%M%S') + '_' + run[:8] + '.xlsx')
+                        path = REPORT_DIR / 'auto_ip' / (datetime.now().strftime('%Y%m%d_%H%M%S') + '_' + run[:8] + '.xlsx')
                         export_report(run, path)
-                        self._record(run, '', 'report', 'OK', str(path))
+                        report_path = str(path)
+                        self._record(run, '', 'report', 'OK', report_path)
                         with connect() as c:
-                            c.execute('UPDATE autoip_runs SET report_path=? WHERE id=?', (str(path), run))
-                        self._state(report_path=str(path))
+                            c.execute('UPDATE autoip_runs SET report_path=? WHERE id=?', (report_path, run))
+                        self._state(report_path=report_path)
                     except Exception as exc:
                         self._record(run, '', 'report', 'ERROR', redact(exc))
+                if options.email_report_after_run and report_path:
+                    try:
+                        result = send_run_report_email(run, report_path, options.report_email_to)
+                        self._record(run, '', 'email_report', 'OK', 'Đã gửi: ' + result['recipient'])
+                    except SkipTask as exc:
+                        self._record(run, '', 'email_report', 'SKIP', str(exc))
+                    except Exception as exc:
+                        self._record(run, '', 'email_report', 'ERROR', 'Không gửi được email báo cáo: ' + redact(exc))
                 self._state(status=status)
                 if not options.repeat or self.stop_event.is_set():
                     break

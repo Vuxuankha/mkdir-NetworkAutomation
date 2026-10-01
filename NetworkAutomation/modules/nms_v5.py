@@ -10,12 +10,12 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog, filedialog
 
-from database.db import DB_PATH, init_database
+from database.db import DB_PATH, init_database, get_connection
+from app_runtime import BACKUP_DIR as APP_BACKUP_DIR, DATABASE_DIR
 
-APP_DIR = Path(__file__).resolve().parents[1]
-BACKUP_DIR = APP_DIR / 'backups'
-BACKUP_DIR.mkdir(exist_ok=True)
-KEY_FILE = APP_DIR / 'database' / '.credential.key'
+BACKUP_DIR = APP_BACKUP_DIR
+BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+KEY_FILE = DATABASE_DIR / '.credential.key'
 
 
 def _now():
@@ -24,8 +24,7 @@ def _now():
 
 def _connect():
     init_database()
-    c = sqlite3.connect(DB_PATH)
-    c.row_factory = sqlite3.Row
+    c = get_connection()
     return c
 
 

@@ -6,7 +6,7 @@ from datetime import datetime
 import sqlite3
 import pandas as pd
 
-from database.db import DB_PATH, init_database
+from database.db import DB_PATH, init_database, get_connection
 from modules.network_scan import scan_network
 from modules.extra_pages import get_setting
 
@@ -29,9 +29,7 @@ class IPMacManagerPage:
         self.refresh()
 
     def _connect(self):
-        conn = sqlite3.connect(DB_PATH)
-        conn.row_factory = sqlite3.Row
-        return conn
+        return get_connection()
 
     def _init_table(self):
         init_database()

@@ -13,16 +13,14 @@ from tkinter import ttk, messagebox, filedialog, simpledialog
 
 import pandas as pd
 
-from database.db import DB_PATH, init_database
+from database.db import DB_PATH, init_database, get_connection
+from app_runtime import BACKUP_DIR, REPORT_DIR
 from modules.ping_check import ping_host
 from modules.advanced_pages import open_device_detail, notify_alert, ensure_advanced_tables
 
 
-APP_DIR = Path(__file__).resolve().parents[1]
-BACKUP_DIR = APP_DIR / "backups"
-REPORT_DIR = APP_DIR / "reports"
-BACKUP_DIR.mkdir(exist_ok=True)
-REPORT_DIR.mkdir(exist_ok=True)
+BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+REPORT_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def _now():
@@ -31,8 +29,7 @@ def _now():
 
 def _connect():
     init_database()
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = get_connection()
     return conn
 
 

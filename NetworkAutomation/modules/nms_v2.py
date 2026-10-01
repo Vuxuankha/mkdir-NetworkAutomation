@@ -5,13 +5,14 @@ import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 from database.db import DB_PATH, init_database
 from modules.advanced_pages import snmp_get, _connect, _now, log_activity, BACKUP_DIR, ensure_advanced_tables
+from app_runtime import hidden_subprocess_kwargs
 
 BACKUP_JOB_SECRETS = {}
 
 
 def _ping(ip):
     flag='-n' if os.name=='nt' else '-c'
-    try:return subprocess.run(['ping',flag,'1',ip],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=2).returncode==0
+    try:return subprocess.run(['ping',flag,'1',ip],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=2,**hidden_subprocess_kwargs()).returncode==0
     except Exception:return False
 
 class NOCDashboardPage:
@@ -203,7 +204,7 @@ class NetworkHealthPage:
             # 4 ICMP probes; parse platform output conservatively.
             flag='-n' if os.name=='nt' else '-c'; cmd=['ping',flag,'4',host]
             try:
-                p=subprocess.run(cmd,capture_output=True,text=True,timeout=8,errors='replace'); out=p.stdout
+                p=subprocess.run(cmd,capture_output=True,text=True,timeout=8,errors='replace',**hidden_subprocess_kwargs()); out=p.stdout
                 sent=4
                 if os.name=='nt':
                     m=re.search(r'Lost = (\d+)',out,re.I); lost=int(m.group(1)) if m else (0 if p.returncode==0 else 4)

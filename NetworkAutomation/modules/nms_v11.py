@@ -5,7 +5,7 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 
-from database.db import DB_PATH
+from database.db import DB_PATH, database_health as db_database_health, optimize_database
 from modules.advanced_pages import _connect, _now
 from modules.nms_v10 import ensure_v10_tables
 
@@ -96,9 +96,12 @@ class JobQueueEngine:
 
 def database_health():
     try:
-        c=sqlite3.connect(DB_PATH); result=c.execute('PRAGMA quick_check').fetchone()[0]; c.close()
-        size=Path(DB_PATH).stat().st_size if Path(DB_PATH).exists() else 0
-        return ('OK' if result=='ok' else 'Lỗi',f'quick_check={result}; size={size/1024/1024:.1f} MB')
+        h=db_database_health()
+        status='OK' if h['quick_check']=='ok' else 'Lỗi'
+        detail=(f"quick_check={h['quick_check']}; WAL={h['journal_mode']}; "
+                f"schema=v{h['schema_version']}; indexes={h['indexes']}; "
+                f"size={h['db_size_bytes']/1024/1024:.1f} MB")
+        return status,detail
     except Exception as e: return 'Lỗi',str(e)
 
 
@@ -113,7 +116,7 @@ def backup_database(dest_dir=None):
 
 
 def vacuum_database():
-    c=sqlite3.connect(DB_PATH); c.execute('PRAGMA optimize'); c.execute('VACUUM'); c.close(); return True
+    optimize_database(vacuum=True); return True
 
 
 def system_health(worker=None):

@@ -5,6 +5,7 @@ import json
 import tkinter as tk
 from dataclasses import asdict
 from pathlib import Path
+from app_runtime import resource_path
 from tkinter import filedialog, messagebox, ttk
 
 from modules.auto_ip import (AutomationEngine, Options, TASK_NAMES, connect, credentials,
@@ -122,8 +123,20 @@ class AutoIPPage:
             field.pack(side='left', padx=(0, 14))
             self.controls.append(field)
         ttk.Button(row3, text='L\u01b0u l\u1ef1a ch\u1ecdn', command=lambda: self._guard(self.save_choices)).pack(side='left')
-        ttk.Label(config, text='SNMP l\u00e0 b\u01b0\u1edbc ph\u1ee5 thu\u1ed9c c\u1ee7a CPU/RAM, c\u1ed5ng v\u00e0 topology. Backup/Th\u00f4ng b\u00e1o m\u1eb7c \u0111\u1ecbnh t\u1eaft.',
-                  foreground='#6B7280', wraplength=800).grid(row=6, column=0, columnspan=4, sticky='w', pady=(4, 0))
+        email_row = ttk.Frame(config)
+        email_row.grid(row=6, column=0, columnspan=4, sticky='ew', pady=(6, 2))
+        self.vars['email_report_after_run'] = tk.BooleanVar(value=getattr(self.options, 'email_report_after_run', False))
+        email_check = ttk.Checkbutton(email_row, text='G\u1eedi Gmail/Email sau khi ch\u1ea1y xong', variable=self.vars['email_report_after_run'])
+        email_check.pack(side='left', padx=(0, 10))
+        self.controls.append(email_check)
+        ttk.Label(email_row, text='Email nh\u1eadn:').pack(side='left')
+        self.vars['report_email_to'] = tk.StringVar(value=getattr(self.options, 'report_email_to', ''))
+        email_entry = ttk.Entry(email_row, textvariable=self.vars['report_email_to'], width=34)
+        email_entry.pack(side='left', padx=6)
+        self.controls.append(email_entry)
+        ttk.Label(email_row, text='(\u0111\u1ec3 tr\u1ed1ng = Email To trong Notification Center)', foreground='#6B7280').pack(side='left')
+        ttk.Label(config, text='SMTP/Gmail d\u00f9ng c\u1ea5u h\u00ecnh trong Notification Center. Khi b\u1eadt g\u1eedi email, app lu\u00f4n t\u1ea1o file Excel v\u00e0 \u0111\u00ednh k\u00e8m sau m\u1ed7i l\u01b0\u1ee3t ch\u1ea1y. Backup/Th\u00f4ng b\u00e1o m\u1eb7c \u0111\u1ecbnh t\u1eaft.',
+                  foreground='#6B7280', wraplength=800).grid(row=7, column=0, columnspan=4, sticky='w', pady=(4, 0))
         self.authorized = tk.BooleanVar(value=False)
         ttk.Checkbutton(f, text='T\u00f4i c\u00f3 quy\u1ec1n qu\u1ea3n tr\u1ecb c\u00e1c IP n\u00e0y v\u00e0 \u0111\u1ed3ng \u00fd ch\u1ea1y c\u00e1c t\u00e1c v\u1ee5 \u0111\u00e3 ch\u1ecdn.',
                         variable=self.authorized).pack(anchor='w')
@@ -209,7 +222,7 @@ class AutoIPPage:
             self._accept(parse_excel(path))
 
     def save_template(self):
-        source = Path(__file__).resolve().parents[1] / 'templates' / 'IP_List_Mau.xlsx'
+        source = resource_path('templates', 'IP_List_Mau.xlsx')
         path = filedialog.asksaveasfilename(parent=self.frame, initialfile=source.name, defaultextension='.xlsx', filetypes=[('Excel', '*.xlsx')])
         if path:
             Path(path).write_bytes(source.read_bytes())
