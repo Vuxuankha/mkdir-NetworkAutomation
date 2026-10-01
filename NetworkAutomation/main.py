@@ -95,7 +95,7 @@ class NetworkAutomationApp:
         ensure_v12_tables()
 
         self.root.title(
-            "Công cụ Tự động hóa Mạng"
+            "Công cụ Tự động hóa Mạng - Vũ Xuân Kha"
         )
 
         self.root.geometry(
@@ -565,7 +565,7 @@ class NetworkAutomationApp:
         self.clear_content()
 
         self.set_page_title(
-            "Network Automation Tool\nIT Infrastructure Management System\nVersion 3.10"
+            "Network Automation Tool\nIT Infrastructure Management System\nVersion 0.01"
         )
 
         cards_frame = tk.Frame(
@@ -788,7 +788,7 @@ class NetworkAutomationApp:
 
         self.network_entry.insert(
             0,
-            get_setting("default_network", "192.168.1.0/24")
+            get_setting("default_network", "192.168.2.0/24")
         )
 
         self.network_entry.pack(

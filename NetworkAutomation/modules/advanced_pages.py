@@ -1,4 +1,6 @@
 import os
+import queue
+import re
 import socket
 import sqlite3
 import struct
@@ -13,6 +15,7 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 
+from modules.ssh_runner import connection_options, execute_commands
 from database.db import DB_PATH, init_database
 
 APP_DIR = Path(__file__).resolve().parents[1]
@@ -535,7 +538,7 @@ class NetworkTopologyPage(BaseAdvancedPage):
 
 class SSHAutomationPage(BaseAdvancedPage):
     def __init__(self,parent,activity_callback=None):
-        super().__init__(parent,activity_callback);self.host=tk.StringVar();self.port=tk.StringVar(value='22');self.username=tk.StringVar();self.password=tk.StringVar();self.template=tk.StringVar();self.status=tk.StringVar(value='Sẵn sàng');self._build();self._load_templates()
+        super().__init__(parent,activity_callback);self.host=tk.StringVar();self.port=tk.StringVar(value='22');self.username=tk.StringVar();self.password=tk.StringVar();self.template=tk.StringVar();self.status=tk.StringVar(value='Sẵn sàng');self.paging=tk.StringVar();self.mode=tk.StringVar(value='exec');self._busy=False;self._results=queue.Queue();self._build();self._load_templates()
 
     def _build(self):
         ctl=tk.Frame(self.parent,bg='white',bd=1,relief='solid');ctl.pack(fill='x',padx=25,pady=(0,10))
@@ -546,43 +549,86 @@ class SSHAutomationPage(BaseAdvancedPage):
         tk.Button(ctl,text='Lưu mẫu',command=self.save_template).grid(row=1,column=5,pady=(0,12))
         tk.Button(ctl,text='Sao lưu cấu hình đang chạy',command=self.backup_running).grid(row=1,column=7,pady=(0,12),padx=5)
         tk.Label(ctl,textvariable=self.status,bg='white',fg='#6B7280').grid(row=2,column=0,columnspan=8,sticky='w',padx=10,pady=(0,8))
+        tk.Label(ctl,text='Chế độ SSH',bg='white').grid(row=3,column=0,padx=10,pady=5)
+        ttk.Combobox(ctl,textvariable=self.mode,values=['exec','shell'],state='readonly',width=10).grid(row=3,column=1,sticky='w')
+        tk.Label(ctl,text='exec: máy chủ | shell: switch/router; thêm lệnh tắt phân trang phù hợp trước lệnh dài',bg='white',fg='#6B7280',wraplength=500,justify='left').grid(row=3,column=2,columnspan=6,sticky='w',padx=10,pady=5)
+        tk.Label(ctl,text='Tắt phân trang (shell)',bg='white').grid(row=4,column=0,padx=10,pady=5)
+        tk.Entry(ctl,textvariable=self.paging,width=28).grid(row=4,column=1,columnspan=2,sticky='w',pady=5)
         box=self.card();tk.Label(box,text='Lệnh (mỗi dòng một lệnh)',bg='white',font=('Segoe UI',10,'bold')).pack(anchor='w',padx=12,pady=(10,4));self.commands=tk.Text(box,height=9,font=('Consolas',10));self.commands.pack(fill='x',padx=12)
         tk.Label(box,text='Kết quả',bg='white',font=('Segoe UI',10,'bold')).pack(anchor='w',padx=12,pady=(10,4));self.output=tk.Text(box,font=('Consolas',9),bg='#111827',fg='#E5E7EB');self.output.pack(fill='both',expand=True,padx=12,pady=(0,12))
 
-    def _paramiko(self):
-        try:
-            import paramiko
-            return paramiko
-        except ImportError:
-            raise RuntimeError('Paramiko is not installed. Run: pip install -r requirements.txt')
+    def _snapshot(self):
+        options = connection_options(self.host.get(), self.port.get(), self.username.get(),
+                                     self.password.get(), self.mode.get())
+        options['paging'] = self.paging.get().strip()
+        return options
 
-    def _execute(self, commands):
-        paramiko=self._paramiko();host=self.host.get().strip();user=self.username.get().strip();pwd=self.password.get();port=int(self.port.get())
-        if not host or not user:raise ValueError('Host and Username are required.')
-        client=paramiko.SSHClient();client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    def _execute(self, commands, options):
+        return execute_commands(options, commands)
+
+    def _start_job(self, commands, backup=False):
+        if self._busy:
+            messagebox.showinfo('Tự động hóa SSH', 'Đang chạy một tác vụ SSH. Vui lòng chờ.')
+            return
         try:
-            client.connect(hostname=host,port=port,username=user,password=pwd,timeout=7,look_for_keys=True,allow_agent=True)
-            pieces=[]
-            for cmd in commands:
-                stdin,stdout,stderr=client.exec_command(cmd,timeout=20)
-                out=stdout.read().decode(errors='replace');err=stderr.read().decode(errors='replace')
-                pieces.append(f'$ {cmd}\n{out}{err}')
-            return '\n'.join(pieces)
-        finally:client.close()
+            options = self._snapshot()
+        except ValueError as exc:
+            messagebox.showwarning('Tự động hóa SSH', str(exc))
+            return
+        self._busy = True
+        self._job_host = options['host']
+        self.status.set('Đang sao lưu...' if backup else 'Đang kết nối...')
+        self.output.delete('1.0', 'end')
+        def worker():
+            try:
+                out = self._execute(commands, options)
+                if backup:
+                    name = re.sub(r'[^a-zA-Z0-9_.-]', '_', options['host'])
+                    dst = BACKUP_DIR / f"{name}_ssh_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}.cfg"
+                    dst.write_text(out, encoding='utf-8')
+                    conn = _connect()
+                    try:
+                        conn.execute('INSERT INTO config_backups(device_name,source,file_path,size_bytes,note,created_at) VALUES(?,?,?,?,?,?)',
+                                     (options['host'], 'SSH', str(dst), dst.stat().st_size, 'Automatic SSH backup', _now()))
+                        conn.commit()
+                    except Exception:
+                        dst.unlink(missing_ok=True)
+                        raise
+                    finally:
+                        conn.close()
+                    self._results.put((str(dst), None, backup))
+                else:
+                    self._results.put((out, None, backup))
+            except Exception as exc:
+                self._results.put(('', str(exc), backup))
+        threading.Thread(target=worker, daemon=True).start()
+        self.parent.after(100, self._poll_result)
+
+    def _poll_result(self):
+        # Only the Tk main thread accesses widgets or schedules callbacks.
+        if not self.output.winfo_exists():
+            return
+        try:
+            out, err, backup = self._results.get_nowait()
+        except queue.Empty:
+            self.parent.after(100, self._poll_result)
+            return
+        self._busy = False
+        if backup:
+            self._backup_done(out, err)
+        else:
+            self._finish(out, err)
 
     def run_commands(self):
-        cmds=[x.strip() for x in self.commands.get('1.0','end').splitlines() if x.strip()]
-        if not cmds:messagebox.showwarning('Tự động hóa SSH','Enter at least one command.');return
-        self.status.set('Connecting...');self.output.delete('1.0','end')
-        def worker():
-            try:out=self._execute(cmds);self.parent.after(0,lambda:self._finish(out,None))
-            except Exception as exc:
-                msg=str(exc);self.parent.after(0,lambda m=msg:self._finish('',m))
-        threading.Thread(target=worker,daemon=True).start()
+        cmds = [x.strip() for x in self.commands.get('1.0', 'end').splitlines() if x.strip()]
+        if not cmds:
+            messagebox.showwarning('Tự động hóa SSH', 'Vui lòng nhập ít nhất một lệnh.')
+            return
+        self._start_job(cmds)
 
     def _finish(self,out,err):
         if err:self.status.set('Failed');self.output.insert('end','ERROR: '+err);return
-        self.status.set('Completed');self.output.insert('end',out);self.activity(f"SSH commands executed on {self.host.get().strip()}")
+        self.status.set('Completed');self.output.insert('end',out);self.activity(f"SSH commands executed on {self._job_host}")
 
     def save_template(self):
         name=simpledialog.askstring('SSH Template','Template name:',parent=self.parent)
@@ -604,23 +650,15 @@ class SSHAutomationPage(BaseAdvancedPage):
         name=self.template.get();self.commands.delete('1.0','end');self.commands.insert('1.0',self.templates.get(name,''))
 
     def backup_running(self):
-        # User can change this command for non-Cisco devices before running.
-        cmd=simpledialog.askstring('SSH Backup','Command that prints running configuration:',initialvalue='show running-config',parent=self.parent)
-        if not cmd:return
-        self.status.set('Backing up...')
-        def worker():
-            try:
-                out=self._execute([cmd]);name=(self.host.get().strip() or 'device').replace(':','_');dst=BACKUP_DIR/f"{name}_ssh_{datetime.now().strftime('%Y%m%d_%H%M%S')}.cfg";dst.write_text(out,encoding='utf-8')
-                conn=_connect()
-                try:conn.execute('INSERT INTO config_backups(device_name,source,file_path,size_bytes,note,created_at) VALUES(?,?,?,?,?,?)',(name,'SSH',str(dst),dst.stat().st_size,'Automatic SSH backup',_now()));conn.commit()
-                finally:conn.close()
-                self.parent.after(0,lambda:self._backup_done(str(dst),None))
-            except Exception as exc:
-                msg=str(exc);self.parent.after(0,lambda m=msg:self._backup_done('',m))
-        threading.Thread(target=worker,daemon=True).start()
+        cmd = simpledialog.askstring('Sao lưu SSH', 'Lệnh hiển thị cấu hình đang chạy:',
+                                     initialvalue='show running-config', parent=self.parent)
+        if cmd and cmd.strip():
+            # In shell mode, prepend a vendor-specific paging command here if needed.
+            cmds = [x.strip() for x in cmd.splitlines() if x.strip()]
+            self._start_job(cmds, backup=True)
 
     def _backup_done(self,path,err):
-        if err:self.status.set('Backup failed: '+err);return
+        if err:self.status.set('Sao lưu thất bại');self.output.insert('end','ERROR: '+err);return
         self.status.set('Backup saved: '+path);self.activity(f'SSH configuration backup: {path}')
 
 

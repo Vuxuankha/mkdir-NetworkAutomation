@@ -1,0 +1,49 @@
+BẢN VÁ CHỨC NĂNG TỰ ĐỘNG HÓA SSH
+Áp dụng cho bản mkdir-NetworkAutomation.zip đã gửi ngày 01/10/2026.
+
+CÀI ĐẶT
+1. Đóng ứng dụng.
+2. Sao chép modules/advanced_pages.py hiện tại để có thể khôi phục.
+3. Giải nén ZIP này. Sao chép nội dung thư mục NetworkAutomation vào thư mục
+   NetworkAutomation đang chứa main.py của ứng dụng. Chấp nhận ghi đè
+   modules/advanced_pages.py và thêm modules/ssh_runner.py.
+   Không tạo thêm thư mục NetworkAutomation lồng bên trong.
+4. Mở terminal trong thư mục chứa main.py. Nếu thiếu thư viện, chạy:
+   python -m pip install -r requirements.txt
+5. Chạy lại bằng START_WINDOWS.bat hoặc python main.py.
+
+SỬ DỤNG
+- Máy chủ Linux/Windows hỗ trợ SSH exec: chọn chế độ exec.
+- Switch/router có CLI tương tác: chọn shell. Các lệnh giữ cùng một phiên.
+- Với shell, nhập lệnh tắt phân trang phù hợp thiết bị vào ô Tắt phân trang.
+  Ví dụ Cisco IOS: terminal length 0. Ô này được dùng cho cả Chạy lệnh và Sao lưu.
+  Không nhập lệnh Cisco cho thiết bị hãng khác nếu không hỗ trợ.
+- Nhập đúng IP, cổng, Username và Password. Khi có Password, ứng dụng dùng
+  mật khẩu và không thử khóa từ SSH agent trước. Bỏ trống Password để dùng khóa.
+- Thử lệnh đọc thông tin ngắn trước, ví dụ show version (Cisco) hoặc hostname
+  (Linux). Chỉ chạy lệnh cấu hình khi chủ động muốn thay đổi thiết bị.
+- Shell hiện hỗ trợ dấu nhắc kết thúc bằng #, > hoặc $. Lệnh yêu cầu nhập thêm
+  như enable password, xác nhận tương tác, hoặc phân trang chưa tắt sẽ hết thời
+  gian chờ. Bản vá không tự trả lời những câu hỏi này.
+
+THAY ĐỔI
+- Chụp dữ liệu từ giao diện trước khi chạy luồng nền; trả kết quả qua Queue
+  để luồng chính cập nhật Tk, kể cả khi chuyển trang lúc đang chạy.
+- Chặn chạy nhiều tác vụ SSH đồng thời trên cùng trang.
+- Kiểm tra IP/Username bắt buộc và cổng 1..65535 trước khi kết nối.
+- Có chế độ exec và shell; đọc stdout/stderr đồng thời trong exec.
+- Giới hạn thời gian kết nối/lệnh; luôn đóng client/channel sau thực thi.
+- Báo lỗi khi lệnh exec trả mã lỗi; sao lưu lỗi không được ghi nhận thành công.
+- Làm sạch tên file sao lưu và dùng thời gian có microsecond để tránh trùng tên.
+
+KIỂM TRA
+11 kiểm tra SSH giả lập đạt, bao gồm luồng nền không gọi Tk, chuyển trang,
+xác thực mật khẩu/khóa, shell liên tục, lệnh tắt phân trang, đọc stdout/stderr,
+lỗi kết nối/lệnh và đóng tài nguyên.
+11 nhóm kiểm tra regression_test.py có sẵn đều PASS.
+Chưa kiểm tra trên thiết bị mạng thực hoặc giao diện Tk với màn hình thực.
+Chạy lại kiểm tra SSH bằng:
+python -m unittest discover -s tests -p test_ssh_runner.py -v
+
+Gói này chỉ chứa các file bản vá và kiểm tra. Không kèm database, credential,
+file cấu hình sao lưu hay lịch sử Git.
