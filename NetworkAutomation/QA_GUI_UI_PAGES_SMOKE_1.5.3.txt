@@ -1,0 +1,1 @@
+PASS: pages built/resized at 1200x850, 1000x700, 800x600; no network/API calls.

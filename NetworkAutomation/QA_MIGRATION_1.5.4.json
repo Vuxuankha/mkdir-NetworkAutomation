@@ -1,0 +1,15 @@
+{
+  "counts": {
+    "devices": 93,
+    "network_devices": 93,
+    "app_users": 3,
+    "credentials": 0,
+    "config_backups": 1
+  },
+  "quick_check": "ok",
+  "secrets_decrypted": 2,
+  "snapshot_count": 1,
+  "snapshot_key_matches": true,
+  "rows_preserved": true,
+  "original_key_preserved": true
+}

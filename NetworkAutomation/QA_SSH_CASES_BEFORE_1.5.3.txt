@@ -1,0 +1,99 @@
+test_backup_handles_large_stderr_without_deadlock (test_qa153.QA153BackupTests.test_backup_handles_large_stderr_without_deadlock) ... ERROR
+test_backups_in_same_second_have_distinct_files_and_records (test_qa153.QA153BackupTests.test_backups_in_same_second_have_distinct_files_and_records) ... FAIL
+test_empty_output_is_not_a_valid_backup (test_qa153.QA153BackupTests.test_empty_output_is_not_a_valid_backup) ... FAIL
+test_failed_command_preserves_explicit_destination (test_qa153.QA153BackupTests.test_failed_command_preserves_explicit_destination) ... FAIL
+test_loopback_ssh_auth_and_backup_content (test_qa153.QA153BackupTests.test_loopback_ssh_auth_and_backup_content) ... ok
+test_nonzero_exit_does_not_create_successful_backup (test_qa153.QA153BackupTests.test_nonzero_exit_does_not_create_successful_backup) ... FAIL
+test_exec_can_keep_stderr_out_of_configuration (test_qa153.QA153StreamTests.test_exec_can_keep_stderr_out_of_configuration) ... ERROR
+test_exec_output_limit_closes_channel (test_qa153.QA153StreamTests.test_exec_output_limit_closes_channel) ... ERROR
+test_exec_timeout_closes_channel (test_qa153.QA153StreamTests.test_exec_timeout_closes_channel) ... ok
+
+======================================================================
+ERROR: test_backup_handles_large_stderr_without_deadlock (test_qa153.QA153BackupTests.test_backup_handles_large_stderr_without_deadlock)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/root/.local/lib/python3.12/site-packages/paramiko/channel.py", line 697, in recv
+    out = self.in_buffer.read(nbytes, self.timeout)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.local/lib/python3.12/site-packages/paramiko/buffered_pipe.py", line 154, in read
+    raise PipeTimeout()
+paramiko.buffered_pipe.PipeTimeout
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/workspace/scratch/20c6fe32dd57/qa153_source/tests/test_qa153.py", line 145, in test_backup_handles_large_stderr_without_deadlock
+    started=time.monotonic();path=self.call_backup(host)
+                                  ^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/20c6fe32dd57/qa153_source/tests/test_qa153.py", line 101, in call_backup
+    return backup.ssh_backup({'name':'LAB','ip':'127.0.0.1'},
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/20c6fe32dd57/qa153_source/modules/nms_v5.py", line 211, in ssh_backup
+    data = stdout.read().decode(errors='replace')
+           ^^^^^^^^^^^^^
+  File "/root/.local/lib/python3.12/site-packages/paramiko/file.py", line 184, in read
+    new_data = self._read(self._DEFAULT_BUFSIZE)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.local/lib/python3.12/site-packages/paramiko/channel.py", line 1359, in _read
+    return self.channel.recv(size)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.local/lib/python3.12/site-packages/paramiko/channel.py", line 699, in recv
+    raise socket.timeout()
+TimeoutError
+
+======================================================================
+ERROR: test_exec_can_keep_stderr_out_of_configuration (test_qa153.QA153StreamTests.test_exec_can_keep_stderr_out_of_configuration)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/20c6fe32dd57/qa153_source/tests/test_qa153.py", line 167, in test_exec_can_keep_stderr_out_of_configuration
+    self.assertEqual(ssh_runner.read_exec_output(client,'show run',1),('config','warning'))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'modules.ssh_runner' has no attribute 'read_exec_output'
+
+======================================================================
+ERROR: test_exec_output_limit_closes_channel (test_qa153.QA153StreamTests.test_exec_output_limit_closes_channel)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/20c6fe32dd57/qa153_source/tests/test_qa153.py", line 162, in test_exec_output_limit_closes_channel
+    ssh_runner._exec(client,'show run',1,max_output_bytes=4)
+TypeError: _exec() got an unexpected keyword argument 'max_output_bytes'
+
+======================================================================
+FAIL: test_backups_in_same_second_have_distinct_files_and_records (test_qa153.QA153BackupTests.test_backups_in_same_second_have_distinct_files_and_records)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/20c6fe32dd57/qa153_source/tests/test_qa153.py", line 137, in test_backups_in_same_second_have_distinct_files_and_records
+    self.assertNotEqual(first,second)
+AssertionError: PosixPath('/tmp/tmpwuydlau1/backups/LAB_20261002_120000.cfg') == PosixPath('/tmp/tmpwuydlau1/backups/LAB_20261002_120000.cfg')
+
+======================================================================
+FAIL: test_empty_output_is_not_a_valid_backup (test_qa153.QA153BackupTests.test_empty_output_is_not_a_valid_backup)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/20c6fe32dd57/qa153_source/tests/test_qa153.py", line 123, in test_empty_output_is_not_a_valid_backup
+    with self.assertRaises(RuntimeError):self.call_backup(host)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: RuntimeError not raised
+
+======================================================================
+FAIL: test_failed_command_preserves_explicit_destination (test_qa153.QA153BackupTests.test_failed_command_preserves_explicit_destination)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/20c6fe32dd57/qa153_source/tests/test_qa153.py", line 129, in test_failed_command_preserves_explicit_destination
+    with self.assertRaises(RuntimeError):self.call_backup(host,destination)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: RuntimeError not raised
+
+======================================================================
+FAIL: test_nonzero_exit_does_not_create_successful_backup (test_qa153.QA153BackupTests.test_nonzero_exit_does_not_create_successful_backup)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/20c6fe32dd57/qa153_source/tests/test_qa153.py", line 117, in test_nonzero_exit_does_not_create_successful_backup
+    with self.assertRaises(RuntimeError):self.call_backup(host)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: RuntimeError not raised
+
+----------------------------------------------------------------------
+Ran 9 tests in 30.638s
+
+FAILED (failures=4, errors=3)

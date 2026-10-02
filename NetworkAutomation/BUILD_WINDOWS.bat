@@ -3,7 +3,7 @@ setlocal EnableExtensions
 cd /d "%~dp0"
 
 echo ============================================================
-echo  Network Automation v1.0 - Windows Build
+echo  Network Automation v1.5.3 - Windows Build
 echo ============================================================
 
 where py >nul 2>nul
@@ -26,8 +26,7 @@ python -m pip install --upgrade pip || goto :fail
 python -m pip install -r requirements.txt -r requirements-build.txt || goto :fail
 
 echo [3/6] Compile + regression test...
-python -m compileall -q . || goto :fail
-python regression_test.py || goto :fail
+python tools/run_release_checks.py || goto :fail
 
 echo [4/6] Don thu muc build cu...
 if exist build rmdir /s /q build
@@ -48,7 +47,7 @@ if exist "%ISCC%" (
   echo Phat hien Inno Setup. Dang tao Setup.exe...
   "%ISCC%" "installer\NetworkAutomation.iss" || goto :fail
   echo.
-  echo Setup: release\NetworkAutomation_Setup_v1.5.0.exe
+  echo Setup: release\NetworkAutomation_Setup_v1.5.3.exe
 ) else (
   echo Inno Setup 6 chua duoc cai. EXE van da build thanh cong.
   echo Cai Inno Setup 6 va chay BUILD_INSTALLER.bat de tao Setup.exe.

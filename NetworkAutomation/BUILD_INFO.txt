@@ -1,1 +1,2 @@
-Windows v1.0 packaging based on engineering build 3.15-SQL2-GMAIL
+NetworkAutomation 1.5.3 QA fixes — tested source release
+Windows executable and installer must be rebuilt from this source.

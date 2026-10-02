@@ -1,0 +1,1 @@
+PASS: Avatar menu; bootstrap adoption; account CRUD/roles; password verification; compact footer; Viewer scope; logout.

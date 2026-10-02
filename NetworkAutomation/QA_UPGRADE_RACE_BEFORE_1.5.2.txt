@@ -1,0 +1,14 @@
+test_upgrade_snapshot_is_created_once_across_processes (test_qa152.QA152Tests.test_upgrade_snapshot_is_created_once_across_processes) ... FAIL
+
+======================================================================
+FAIL: test_upgrade_snapshot_is_created_once_across_processes (test_qa152.QA152Tests.test_upgrade_snapshot_is_created_once_across_processes)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/20c6fe32dd57/review_again/tests/test_qa152.py", line 190, in test_upgrade_snapshot_is_created_once_across_processes
+    self.assertEqual(len(backups),1)
+AssertionError: 6 != 1
+
+----------------------------------------------------------------------
+Ran 1 test in 0.174s
+
+FAILED (failures=1)

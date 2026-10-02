@@ -95,6 +95,9 @@ class NetworkAutomationApp:
         self.exit_reason = 'close'
         self.session_user = session_user or {"username": "local-admin", "role": "Admin", "bootstrap": True}
         self.current_role = self.session_user.get("role", "Viewer")
+        self.server_monitor_workers = []
+        self.secure_backup_workers = []
+        self.ssh_workers = []
         # Khởi tạo/migrate toàn bộ schema trước khi bất kỳ màn hình nào đọc dữ liệu.
         ensure_advanced_tables()
         ensure_v3_tables()
@@ -646,7 +649,8 @@ class NetworkAutomationApp:
         self.current_page = "Application / Server"
         self.clear_content()
         self.set_page_title("Application / Server Monitor", "Giám sát ứng dụng, port và sức khỏe Windows Server")
-        ServerMonitorPage(self.content, activity_callback=lambda msg: log_activity(self.current_user, msg))
+        ServerMonitorPage(self.content, activity_callback=self.add_activity,
+                          worker_threads=getattr(self, 'server_monitor_workers', None))
 
     def show_automation_hub(self):
         self._show_compact_hub(
@@ -4275,7 +4279,8 @@ class NetworkAutomationApp:
         self.current_page = "Tự động hóa SSH"
         self.clear_content()
         self.set_page_title("Tự động hóa SSH", "Chạy mẫu lệnh và sao lưu cấu hình qua SSH")
-        self.ssh_automation_page = SSHAutomationPage(self.content, activity_callback=self.add_activity)
+        self.ssh_automation_page = SSHAutomationPage(self.content, activity_callback=self.add_activity,
+                                                    worker_threads=self.ssh_workers)
 
     def show_notifications(self):
 
@@ -4368,7 +4373,8 @@ class NetworkAutomationApp:
         self.current_page = "Lịch sao lưu bảo mật"
         self.clear_content()
         self.set_page_title("Lịch sao lưu bảo mật", "Tự động backup cấu hình SSH bằng credential đã mã hóa")
-        self.secure_backup_scheduler_page = SecureBackupSchedulerPage(self.content, activity_callback=self.add_activity)
+        self.secure_backup_scheduler_page = SecureBackupSchedulerPage(self.content, activity_callback=self.add_activity,
+                                                                    worker_threads=self.secure_backup_workers)
 
     def show_config_compare(self):
         self.current_page = "So sánh cấu hình"
@@ -4465,6 +4471,9 @@ class NetworkAutomationApp:
             self.root.after(250, self._finish_close)
             return
         threads = list(getattr(self, '_closing_threads', []))
+        threads.extend(getattr(self, 'server_monitor_workers', []))
+        threads.extend(getattr(self, 'secure_backup_workers', []))
+        threads.extend(getattr(self, 'ssh_workers', []))
         for name in ('monitoring_service', 'background_alert_engine', 'auto_audit_scheduler'):
             threads.append(getattr(getattr(self, name, None), 'thread', None))
         threads.extend(getattr(getattr(self, 'job_queue_engine', None), 'threads', []))

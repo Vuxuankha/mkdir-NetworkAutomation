@@ -1,0 +1,17 @@
+{
+  "unit_tests": 155,
+  "unit_failures": 0,
+  "regression_checks": 11,
+  "regression_failures": 0,
+  "gui_scripts_passed": 5,
+  "pages_built": 57,
+  "gui_environment": "Linux/Xvfb",
+  "ssh_transport": "local Paramiko client/server; 127.0.0.1 only",
+  "tested_from_extracted_zip": true,
+  "tested_source_matches_final_zip": true,
+  "archive_crc_check": "pass",
+  "duplicate_archive_names": false,
+  "unchanged_entries_crc_matched": 15920,
+  "original_database_and_key_bytes_preserved": true,
+  "verification_note": "Final archive only adds the packaged test logs and this record to the tested candidate; all Python source bytes are compared with the tested extraction."
+}

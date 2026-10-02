@@ -1,0 +1,162 @@
+test_backup_failure_releases_lock_and_can_be_retried (test_qa152.QA152Tests.test_backup_failure_releases_lock_and_can_be_retried) ... ok
+test_backup_worker_only_reports_via_queue (test_qa152.QA152Tests.test_backup_worker_only_reports_via_queue) ... FAIL
+test_database_error_does_not_disable_future_scheduler_ticks (test_qa152.QA152Tests.test_database_error_does_not_disable_future_scheduler_ticks) ... ERROR
+test_decryption_never_creates_a_replacement_key (test_qa152.QA152Tests.test_decryption_never_creates_a_replacement_key) ... ERROR
+test_host_port_is_rejected_and_bracketed_ipv6_normalized (test_qa152.QA152Tests.test_host_port_is_rejected_and_bracketed_ipv6_normalized) ... FAIL
+test_http_error_response_is_warning_and_closes_response (test_qa152.QA152Tests.test_http_error_response_is_warning_and_closes_response) ... FAIL
+test_lost_key_with_existing_credentials_is_not_replaced (test_qa152.QA152Tests.test_lost_key_with_existing_credentials_is_not_replaced) ... FAIL
+test_malformed_port_and_health_do_not_abort_monitoring (test_qa152.QA152Tests.test_malformed_port_and_health_do_not_abort_monitoring) ... ERROR
+test_missing_key_detects_snmp_and_settings_ciphertext (test_qa152.QA152Tests.test_missing_key_detects_snmp_and_settings_ciphertext) ... FAIL
+test_navigation_stops_scheduling_and_ignores_late_results (test_qa152.QA152Tests.test_navigation_stops_scheduling_and_ignores_late_results) ... ERROR
+test_parallel_processes_share_one_complete_vault_key (test_qa152.QA152Tests.test_parallel_processes_share_one_complete_vault_key) ... ok
+test_shutdown_waits_for_secure_backup_worker (test_qa152.QA152Tests.test_shutdown_waits_for_secure_backup_worker) ... FAIL
+test_slow_backup_cannot_run_twice_even_across_page_instances (test_qa152.QA152Tests.test_slow_backup_cannot_run_twice_even_across_page_instances) ... FAIL
+test_unreachable_service_stays_down_with_high_resource_warning (test_qa152.QA152Tests.test_unreachable_service_stays_down_with_high_resource_warning) ... FAIL
+
+======================================================================
+ERROR: test_database_error_does_not_disable_future_scheduler_ticks (test_qa152.QA152Tests.test_database_error_does_not_disable_future_scheduler_ticks)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/20c6fe32dd57/review_again/tests/test_qa152.py", line 180, in test_database_error_does_not_disable_future_scheduler_ticks
+    page._tick()
+  File "/workspace/scratch/20c6fe32dd57/review_again/modules/nms_v5.py", line 340, in _tick
+    c=_connect();rows=c.execute('SELECT id FROM secure_backup_jobs WHERE enabled=1 AND next_run<=?',(time.time(),)).fetchall();c.close()
+      ^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/unittest/mock.py", line 1139, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/unittest/mock.py", line 1143, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/unittest/mock.py", line 1198, in _execute_mock_call
+    raise effect
+sqlite3.OperationalError: locked
+
+======================================================================
+ERROR: test_decryption_never_creates_a_replacement_key (test_qa152.QA152Tests.test_decryption_never_creates_a_replacement_key)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/cryptography/fernet.py", line 131, in _verify_signature
+    h.verify(data[-32:])
+cryptography.exceptions.InvalidSignature: Signature did not match digest.
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/workspace/scratch/20c6fe32dd57/review_again/tests/test_qa152.py", line 81, in test_decryption_never_creates_a_replacement_key
+    vault.decrypt_secret(token)
+  File "/workspace/scratch/20c6fe32dd57/review_again/modules/nms_v5.py", line 110, in decrypt_secret
+    return _fernet().decrypt((token or '').encode('ascii')).decode('utf-8')
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/cryptography/fernet.py", line 90, in decrypt
+    return self._decrypt_data(data, timestamp, time_info)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/cryptography/fernet.py", line 149, in _decrypt_data
+    self._verify_signature(data)
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/cryptography/fernet.py", line 133, in _verify_signature
+    raise InvalidToken
+cryptography.fernet.InvalidToken
+
+======================================================================
+ERROR: test_malformed_port_and_health_do_not_abort_monitoring (test_qa152.QA152Tests.test_malformed_port_and_health_do_not_abort_monitoring)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/20c6fe32dd57/review_again/tests/test_qa152.py", line 215, in test_malformed_port_and_health_do_not_abort_monitoring
+    result = monitor.check_target(self.target(port='bad'))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/20c6fe32dd57/review_again/modules/server_monitor.py", line 64, in check_target
+    host=row['host']; port=int(row['port'] or 0); proto=(row['protocol'] or 'TCP').upper(); t0=time.perf_counter()
+                           ^^^^^^^^^^^^^^^^^^^^^
+ValueError: invalid literal for int() with base 10: 'bad'
+
+======================================================================
+ERROR: test_navigation_stops_scheduling_and_ignores_late_results (test_qa152.QA152Tests.test_navigation_stops_scheduling_and_ignores_late_results)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/20c6fe32dd57/review_again/tests/test_qa152.py", line 170, in test_navigation_stops_scheduling_and_ignores_late_results
+    page = self.page();page.on_destroy(Mock(widget=page.t))
+                       ^^^^^^^^^^^^^^^
+AttributeError: 'SecureBackupSchedulerPage' object has no attribute 'on_destroy'
+
+======================================================================
+FAIL: test_backup_worker_only_reports_via_queue (test_qa152.QA152Tests.test_backup_worker_only_reports_via_queue)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/20c6fe32dd57/review_again/tests/test_qa152.py", line 151, in test_backup_worker_only_reports_via_queue
+    page.parent.after.assert_not_called()
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/unittest/mock.py", line 910, in assert_not_called
+    raise AssertionError(msg)
+AssertionError: Expected 'after' to not have been called. Called 1 times.
+Calls: [call(0, <Mock id='140535949384000'>)].
+
+======================================================================
+FAIL: test_host_port_is_rejected_and_bracketed_ipv6_normalized (test_qa152.QA152Tests.test_host_port_is_rejected_and_bracketed_ipv6_normalized)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/20c6fe32dd57/review_again/tests/test_qa152.py", line 219, in test_host_port_is_rejected_and_bracketed_ipv6_normalized
+    with self.assertRaises(ValueError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_http_error_response_is_warning_and_closes_response (test_qa152.QA152Tests.test_http_error_response_is_warning_and_closes_response)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/20c6fe32dd57/review_again/tests/test_qa152.py", line 203, in test_http_error_response_is_warning_and_closes_response
+    self.assertEqual(result['status'],'WARN')
+AssertionError: 'DOWN' != 'WARN'
+- DOWN
++ WARN
+
+
+======================================================================
+FAIL: test_lost_key_with_existing_credentials_is_not_replaced (test_qa152.QA152Tests.test_lost_key_with_existing_credentials_is_not_replaced)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/20c6fe32dd57/review_again/tests/test_qa152.py", line 71, in test_lost_key_with_existing_credentials_is_not_replaced
+    with self.assertRaisesRegex(RuntimeError, 'khóa'):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: RuntimeError not raised
+
+======================================================================
+FAIL: test_missing_key_detects_snmp_and_settings_ciphertext (test_qa152.QA152Tests.test_missing_key_detects_snmp_and_settings_ciphertext)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/20c6fe32dd57/review_again/tests/test_qa152.py", line 89, in test_missing_key_detects_snmp_and_settings_ciphertext
+    with self.assertRaises(RuntimeError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: RuntimeError not raised
+
+======================================================================
+FAIL: test_shutdown_waits_for_secure_backup_worker (test_qa152.QA152Tests.test_shutdown_waits_for_secure_backup_worker)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/20c6fe32dd57/review_again/tests/test_qa152.py", line 189, in test_shutdown_waits_for_secure_backup_worker
+    app.root.after.assert_called_once_with(250,app._finish_close)
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/unittest/mock.py", line 960, in assert_called_once_with
+    raise AssertionError(msg)
+AssertionError: Expected 'after' to be called once. Called 0 times.
+
+======================================================================
+FAIL: test_slow_backup_cannot_run_twice_even_across_page_instances (test_qa152.QA152Tests.test_slow_backup_cannot_run_twice_even_across_page_instances)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/20c6fe32dd57/review_again/tests/test_qa152.py", line 142, in test_slow_backup_cannot_run_twice_even_across_page_instances
+    self.assertEqual(task.call_count,1)
+AssertionError: 3 != 1
+
+======================================================================
+FAIL: test_unreachable_service_stays_down_with_high_resource_warning (test_qa152.QA152Tests.test_unreachable_service_stays_down_with_high_resource_warning)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/20c6fe32dd57/review_again/tests/test_qa152.py", line 210, in test_unreachable_service_stays_down_with_high_resource_warning
+    self.assertEqual(result['status'],'DOWN')
+AssertionError: 'WARN' != 'DOWN'
+- WARN
++ DOWN
+
+
+----------------------------------------------------------------------
+Ran 14 tests in 0.494s
+
+FAILED (failures=8, errors=4)

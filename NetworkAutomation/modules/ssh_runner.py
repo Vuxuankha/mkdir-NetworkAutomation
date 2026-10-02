@@ -16,34 +16,45 @@ def connection_options(host, port, username, password, mode='exec'):
     return dict(host=host, port=port, username=username, password=password, mode=mode)
 
 
-def _exec(client, command, timeout):
+MAX_OUTPUT_BYTES = 16 * 1024 * 1024
+
+
+def read_exec_output(client, command, timeout, max_output_bytes=MAX_OUTPUT_BYTES):
     stdin, stdout, stderr = client.exec_command(command, timeout=timeout)
     channel = stdout.channel
     chunks, errors = [], []
+    total = 0
     deadline = time.monotonic() + timeout
     try:
         stdin.close()
         while True:
             if time.monotonic() >= deadline:
                 raise TimeoutError('Hết thời gian chờ lệnh: ' + command)
-            while channel.recv_ready():
-                chunks.append(channel.recv(65536))
-                if time.monotonic() >= deadline:
-                    raise TimeoutError('Hết thời gian chờ lệnh: ' + command)
-            while channel.recv_stderr_ready():
-                errors.append(channel.recv_stderr(65536))
-                if time.monotonic() >= deadline:
-                    raise TimeoutError('Hết thời gian chờ lệnh: ' + command)
+            # Drain both SSH streams fairly: unread stderr can fill the shared window.
+            for ready, receive, collected in ((channel.recv_ready,channel.recv,chunks),
+                                               (channel.recv_stderr_ready,channel.recv_stderr,errors)):
+                if ready():
+                    data = receive(65536)
+                    total += len(data)
+                    if total > max_output_bytes:
+                        raise RuntimeError('Kết quả SSH vượt giới hạn dung lượng cho phép.')
+                    collected.append(data)
             if channel.exit_status_ready() and not channel.recv_ready() and not channel.recv_stderr_ready():
                 break
             time.sleep(.02)
-        out = b''.join(chunks + errors).decode(errors='replace')
+        out = b''.join(chunks).decode(errors='replace')
+        err = b''.join(errors).decode(errors='replace')
         status = channel.recv_exit_status()
         if status not in (0, -1):
-            raise RuntimeError(f'Lệnh thất bại (mã {status}): {command}\n{out}')
-        return out
+            raise RuntimeError(f'Lệnh thất bại (mã {status}): {command}\n{out}{err}')
+        return out, err
     finally:
         channel.close()
+
+
+def _exec(client, command, timeout, max_output_bytes=MAX_OUTPUT_BYTES):
+    out, err = read_exec_output(client,command,timeout,max_output_bytes)
+    return out + err
 
 
 def _shell_read(channel, timeout, prompt=None):

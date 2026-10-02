@@ -1,0 +1,1 @@
+PASS: actual SSH page connects to loopback server, exact password authentication, queue result, activity callback and tracked worker completion.

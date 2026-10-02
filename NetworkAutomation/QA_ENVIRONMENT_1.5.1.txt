@@ -1,0 +1,7 @@
+Linux / Python 3.12
+pandas==2.2.3
+openpyxl==3.1.5
+paramiko==5.0.0
+cryptography==46.0.0
+pysnmp==7.1.30
+numpy==2.3.5

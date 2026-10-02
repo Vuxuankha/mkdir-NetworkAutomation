@@ -1,0 +1,3 @@
+PASS: environment forbids ICMP; real ping local permission error is Unknown, not Offline.
+ping: socktype: SOCK_RAW
+ping: socket: Operation not permitted

@@ -201,7 +201,14 @@ class AccountManagementPage:
         hint = ttk.Label(parent, text='Admin: quản trị • Operator: kỹ thuật viên vận hành • Viewer: xem giám sát.\nKhông thể xóa, khóa hoặc hạ quyền tài khoản đang đăng nhập; luôn giữ ít nhất một Admin hoạt động.',
                          foreground=PALETTE['muted'], padding=(25, 10), wraplength=750, justify='left')
         hint.pack(fill='x')
-        parent.bind('<Configure>', lambda e: hint.configure(wraplength=max(250, e.width-50)) if e.widget is parent else None, add='+')
+        binding=parent.bind('<Configure>', lambda e: hint.configure(wraplength=max(250, e.width-50)) if e.widget is parent and hint.winfo_exists() else None, add='+')
+        def detach(event):
+            if event.widget is hint:
+                try:
+                    parent.unbind('<Configure>',binding)
+                except tk.TclError:
+                    pass
+        hint.bind('<Destroy>',detach,add='+')
         self.refresh()
 
     def refresh(self):

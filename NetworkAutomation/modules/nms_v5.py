@@ -3,6 +3,10 @@ import base64
 import hashlib
 import hmac
 import os
+import tempfile
+import queue
+import logging
+from contextlib import contextmanager
 import sqlite3
 import threading
 import time
@@ -86,20 +90,66 @@ def ensure_v5_tables():
         c.close()
 
 
-def _fernet():
+def _encrypted_data_present(c):
+    tables = {r['name'] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    for table in tables:
+        quoted_table = '"' + table.replace('"', '""') + '"'
+        for row in c.execute(f'PRAGMA table_info({quoted_table})').fetchall():
+            col = row['name']
+            quoted_col = '"' + col.replace('"', '""') + '"'
+            if col.endswith('_enc') and c.execute(f'SELECT 1 FROM {quoted_table} WHERE {quoted_col} IS NOT NULL AND {quoted_col}<>\'\' LIMIT 1').fetchone():
+                return True
+    return 'settings' in tables and bool(c.execute("SELECT 1 FROM settings WHERE key LIKE '%\\_enc' ESCAPE '\\' AND value IS NOT NULL AND value<>'' LIMIT 1").fetchone())
+
+
+@contextmanager
+def _key_lock():
+    from agent_runtime import AgentLock
+    lock = AgentLock(KEY_FILE.with_suffix('.lock'))
+    deadline = time.monotonic()+5
+    while True:
+        try:
+            lock.__enter__()
+            break
+        except RuntimeError:
+            if time.monotonic() >= deadline:
+                raise RuntimeError('Đang tạo khóa credential. Hãy thử lại sau.') from None
+            time.sleep(.02)
+    try:
+        yield
+    finally:
+        lock.__exit__(None, None, None)
+
+
+def _fernet(allow_create=True):
     try:
         from cryptography.fernet import Fernet
     except Exception as e:
         raise RuntimeError('Thiếu thư viện cryptography. Hãy chạy: pip install cryptography') from e
     KEY_FILE.parent.mkdir(parents=True, exist_ok=True)
-    if not KEY_FILE.exists():
-        key = Fernet.generate_key()
-        KEY_FILE.write_bytes(key)
-        try:
-            os.chmod(KEY_FILE, 0o600)
-        except Exception:
-            pass
-    return Fernet(KEY_FILE.read_bytes().strip())
+    if KEY_FILE.exists():
+        return Fernet(KEY_FILE.read_bytes().strip())
+    if not allow_create:
+        raise RuntimeError('Mất khóa credential. Khôi phục đúng khóa từ bản sao lưu.')
+    with _key_lock():
+        if not KEY_FILE.exists():
+            c = _connect()
+            try:
+                # Do not silently replace a lost key and make existing secrets unusable.
+                if _encrypted_data_present(c):
+                    raise RuntimeError('Mất khóa .credential.key nhưng database còn dữ liệu mã hóa. Khôi phục đúng khóa từ bản sao lưu.')
+            finally:
+                c.close()
+            fd, temporary = tempfile.mkstemp(prefix='.vault_', dir=KEY_FILE.parent)
+            try:
+                with os.fdopen(fd, 'wb') as stream:
+                    stream.write(Fernet.generate_key())
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                os.replace(temporary, KEY_FILE)
+            finally:
+                Path(temporary).unlink(missing_ok=True)
+        return Fernet(KEY_FILE.read_bytes().strip())
 
 
 def encrypt_secret(text):
@@ -107,7 +157,7 @@ def encrypt_secret(text):
 
 
 def decrypt_secret(token):
-    return _fernet().decrypt((token or '').encode('ascii')).decode('utf-8')
+    return _fernet(allow_create=False).decrypt((token or '').encode('ascii')).decode('utf-8')
 
 
 def _hash_password(password, salt=None):
@@ -156,19 +206,31 @@ def ssh_backup(device, credential, command, destination=None):
     cli = paramiko.SSHClient(); cli.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     try:
         cli.connect(host, port=port, username=credential['username'], password=secret,
-                    timeout=10, look_for_keys=False, allow_agent=False)
-        stdin, stdout, stderr = cli.exec_command(command or 'show running-config', timeout=30)
-        data = stdout.read().decode(errors='replace')
-        err = stderr.read().decode(errors='replace')
-        if err and not data:
-            raise RuntimeError(err.strip())
+                    timeout=10, banner_timeout=15, auth_timeout=15, look_for_keys=False, allow_agent=False)
+        from modules.ssh_runner import read_exec_output
+        data, err = read_exec_output(cli,command or 'show running-config',30)
+        if not data.strip():
+            raise RuntimeError(err.strip() or 'Thiết bị không trả dữ liệu cấu hình; không tạo bản sao rỗng.')
     finally:
         cli.close()
     if destination is None:
         safe = ''.join(ch if ch.isalnum() or ch in '-_.' else '_' for ch in (device['name'] or host))
-        destination = BACKUP_DIR / f"{safe}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.cfg"
-    destination = Path(destination)
-    destination.write_text(data, encoding='utf-8')
+        fd, filename = tempfile.mkstemp(prefix=f"{safe}_{datetime.now().strftime('%Y%m%d_%H%M%S')}_",
+                                        suffix='.cfg',dir=BACKUP_DIR)
+        destination = Path(filename)
+        temporary = destination
+    else:
+        destination = Path(destination)
+        fd, filename = tempfile.mkstemp(prefix='.backup_',dir=destination.parent)
+        temporary = Path(filename)
+    try:
+        with os.fdopen(fd,'w',encoding='utf-8',newline='') as stream:
+            stream.write(data);stream.flush();os.fsync(stream.fileno())
+        if temporary != destination:
+            os.replace(temporary,destination)
+    except Exception:
+        temporary.unlink(missing_ok=True)
+        raise
     c = _connect()
     try:
         c.execute('INSERT INTO config_backups(device_name,source,file_path,size_bytes,note,created_at) VALUES(?,?,?,?,?,?)',
@@ -224,7 +286,7 @@ class CredentialManagerPage:
         def save():
             if not vals['name'].get().strip(): messagebox.showwarning(title,'Vui lòng nhập tên.',parent=w); return
             if not row and not vals['secret'].get(): messagebox.showwarning(title,'Vui lòng nhập mật khẩu/community.',parent=w); return
-            result.update({k:v.get().strip() for k,v in vals.items()}); w.destroy()
+            result.update({k:v.get() if k=='secret' else v.get().strip() for k,v in vals.items()}); w.destroy()
         tk.Button(w,text='Lưu',command=save,bg=UI_COLORS['primary'],fg=UI_COLORS['text'],width=12).grid(row=7,column=1,sticky='e',padx=10,pady=15)
         w.wait_window(); return result or None
 
@@ -289,8 +351,15 @@ class CredentialManagerPage:
 
 
 class SecureBackupSchedulerPage:
-    def __init__(self,parent,activity_callback=None):
-        ensure_v5_tables();self.parent=parent;self.activity=activity_callback or (lambda m:None);self._build();self.refresh();self.parent.after(5000,self._tick)
+    def __init__(self,parent,activity_callback=None,worker_threads=None):
+        ensure_v5_tables()
+        self.parent=parent;self.activity=activity_callback or (lambda m:None)
+        self.worker_threads=worker_threads if worker_threads is not None else []
+        self.stop_event=threading.Event();self.results=queue.Queue()
+        self._build();self.refresh()
+        self.t.bind('<Destroy>',self.on_destroy,add='+')
+        self.parent.after(5000,self._tick)
+        self.parent.after(100,self.poll_results)
     def _build(self):
         ctl=tk.Frame(self.parent,bg=UI_COLORS['background']);ctl.pack(fill='x',padx=25,pady=(0,8))
         tk.Button(ctl,text='Thêm lịch sao lưu',command=self.add,bg=UI_COLORS['primary'],fg=UI_COLORS['text'],relief='flat').pack(side='left')
@@ -336,23 +405,102 @@ class SecureBackupSchedulerPage:
         if not i:return
         c=_connect();c.execute('DELETE FROM secure_backup_jobs WHERE id=?',(i,));c.commit();c.close();self.refresh()
     def _tick(self):
+        if self.stop_event.is_set():
+            return
         try:
-            c=_connect();rows=c.execute('SELECT id FROM secure_backup_jobs WHERE enabled=1 AND next_run<=?',(time.time(),)).fetchall();c.close()
-            for r in rows:self._run(r['id'])
-            self.parent.after(5000,self._tick)
-        except tk.TclError:pass
-    def _run(self,i):
-        c=_connect();r=c.execute('''SELECT j.*,d.name device_name,d.ip,cr.name cred_name,cr.kind,cr.username,cr.secret_enc,cr.port,cr.note FROM secure_backup_jobs j JOIN network_devices d ON d.id=j.device_id JOIN credentials cr ON cr.id=j.credential_id WHERE j.id=?''',(i,)).fetchone();c.close()
-        if not r:return
-        def work():
-            status=''
+            c=_connect()
             try:
-                rr=dict(r);device={'name':rr['device_name'],'ip':rr['ip']};cred={'name':rr['cred_name'],'username':rr['username'],'secret_enc':rr['secret_enc'],'port':rr['port']};dst=ssh_backup(device,cred,rr['command']);status='OK: '+dst.name;self.activity('Sao lưu tự động thành công: '+str(dst))
-            except Exception as e:status='Lỗi: '+str(e);self.activity('Sao lưu tự động lỗi: '+str(e))
-            c=_connect();c.execute('UPDATE secure_backup_jobs SET last_run=?,last_status=?,next_run=? WHERE id=?',(_now(),status,time.time()+int(r['interval_min'])*60,i));c.commit();c.close()
-            try:self.parent.after(0,self.refresh)
-            except:pass
-        threading.Thread(target=work,daemon=True).start()
+                rows=c.execute('SELECT id FROM secure_backup_jobs WHERE enabled=1 AND next_run<=?',(time.time(),)).fetchall()
+            finally:
+                c.close()
+            for r in rows:
+                self._run(r['id'],scheduled=True)
+        except Exception:
+            logging.getLogger(__name__).exception('Secure backup scheduler tick failed')
+        finally:
+            if not self.stop_event.is_set():
+                self.parent.after(5000,self._tick)
+
+    def _run(self,i,scheduled=False):
+        if self.stop_event.is_set():
+            return False
+        from agent_runtime import AgentLock
+        # Shared across page instances and application processes using the same data directory.
+        lock=AgentLock(DATABASE_DIR/'backup_job_locks'/f'{int(i)}.lock')
+        try:
+            lock.__enter__()
+        except RuntimeError:
+            return False
+        launched=False
+        try:
+            c=_connect()
+            try:
+                r=c.execute('''SELECT j.*,d.name device_name,d.ip,cr.name cred_name,cr.kind,
+                    cr.username,cr.secret_enc,cr.port,cr.note FROM secure_backup_jobs j
+                    JOIN network_devices d ON d.id=j.device_id
+                    JOIN credentials cr ON cr.id=j.credential_id WHERE j.id=?''',(i,)).fetchone()
+            finally:
+                c.close()
+            if not r:
+                return False
+            rr=dict(r)
+            if scheduled and (not rr['enabled'] or rr['next_run'] is None or float(rr['next_run'])>time.time()):
+                return False
+            def work():
+                try:
+                    interval=60
+                    try:
+                        interval=max(1,int(rr['interval_min']))*60
+                        device={'name':rr['device_name'],'ip':rr['ip']}
+                        cred={'name':rr['cred_name'],'username':rr['username'],
+                              'secret_enc':rr['secret_enc'],'port':rr['port']}
+                        dst=ssh_backup(device,cred,rr['command'])
+                        status='OK: '+dst.name
+                        message='Sao lưu tự động thành công: '+str(dst)
+                    except Exception as e:
+                        status='Lỗi: '+str(e)
+                        message='Sao lưu tự động lỗi: '+str(e)
+                    c=_connect()
+                    try:
+                        c.execute('UPDATE secure_backup_jobs SET last_run=?,last_status=?,next_run=? WHERE id=?',
+                                  (_now(),status,time.time()+interval,i))
+                        c.commit()
+                    finally:
+                        c.close()
+                    self.results.put(message)
+                except Exception as e:
+                    logging.getLogger(__name__).exception('Cannot record secure backup result')
+                    self.results.put('Không lưu được kết quả sao lưu: '+str(e))
+                finally:
+                    lock.__exit__(None,None,None)
+            thread=threading.Thread(target=work,daemon=True,name=f'SecureBackup-{i}')
+            self.worker_threads[:]=[t for t in self.worker_threads if t.is_alive()]
+            self.worker_threads.append(thread)
+            thread.start()
+            launched=True
+            return True
+        finally:
+            if not launched:
+                lock.__exit__(None,None,None)
+
+    def poll_results(self):
+        if self.stop_event.is_set():
+            return
+        changed=False
+        while True:
+            try:
+                message=self.results.get_nowait()
+            except queue.Empty:
+                break
+            self.activity(message)
+            changed=True
+        if changed:
+            self.refresh()
+        self.parent.after(100,self.poll_results)
+
+    def on_destroy(self,event):
+        if event.widget is self.t:
+            self.stop_event.set()
 
 
 class ConfigComparePage:

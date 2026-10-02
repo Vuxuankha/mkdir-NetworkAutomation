@@ -1,0 +1,90 @@
+Built show_admin_hub
+Built show_advanced_port_monitor
+Built show_alert_rules
+Built show_alerts
+Built show_audit_log
+Built show_auto_discovery
+Built show_auto_ip
+Built show_auto_topology
+Built show_automation_hub
+Built show_backup_config
+Built show_backup_scheduler
+Built show_capacity_planning
+Built show_config_compare
+Built show_credential_manager
+Built show_daily_audit
+Built show_dashboard
+Built show_device_dependencies
+Built show_device_manager
+Built show_device_profiles
+Built show_discovery_hub
+Built show_extensions
+Built show_history_charts
+Built show_incident_center
+Built show_ip_mac_manager
+Built show_maintenance_windows
+Built show_monitoring_hub
+Built show_monitoring_service
+Built show_multi_port_monitor
+Built show_network_devices
+Built show_network_health
+Built show_network_scan
+Built show_network_topology
+Built show_noc_dashboard
+Built show_notifications
+Built show_organization
+Built show_ping_monitor
+Built show_placeholder
+Built show_remote_service
+Built show_reports
+Built show_resource_monitor
+Built show_restore_config
+Built show_root_cause_analysis
+Built show_scheduler
+Built show_secure_backup_scheduler
+Built show_secure_snmp_diagnostics
+Built show_security_audit
+Built show_server_monitor
+Built show_service_impact
+Built show_settings
+Built show_sla_availability
+Built show_snmp_monitor
+Built show_snmpv3_credentials
+Built show_ssh_automation
+Built show_stable_core
+Built show_system_logs
+Built show_user_roles
+Built show_vendor_drivers
+Traceback (most recent call last):
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/tkinter/__init__.py", line 1968, in __call__
+    return self.func(*args)
+           ^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/20c6fe32dd57/qa153_source/modules/account_ui.py", line 204, in <lambda>
+    parent.bind('<Configure>', lambda e: hint.configure(wraplength=max(250, e.width-50)) if e.widget is parent else None, add='+')
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/tkinter/__init__.py", line 1722, in configure
+    return self._configure('configure', cnf, kw)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/tkinter/__init__.py", line 1712, in _configure
+    self.tk.call(_flatten((self._w, cmd)) + self._options(cnf))
+_tkinter.TclError: invalid command name ".!frame3.!label9"
+Traceback (most recent call last):
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/tkinter/__init__.py", line 1968, in __call__
+    return self.func(*args)
+           ^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/20c6fe32dd57/qa153_source/modules/account_ui.py", line 204, in <lambda>
+    parent.bind('<Configure>', lambda e: hint.configure(wraplength=max(250, e.width-50)) if e.widget is parent else None, add='+')
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/tkinter/__init__.py", line 1722, in configure
+    return self._configure('configure', cnf, kw)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/tkinter/__init__.py", line 1712, in _configure
+    self.tk.call(_flatten((self._w, cmd)) + self._options(cnf))
+_tkinter.TclError: invalid command name ".!frame3.!label9"
+Traceback (most recent call last):
+  File "/workspace/scratch/20c6fe32dd57/qa153_source/tests/ui_diagnose.py", line 5, in <module>
+    exec(compile(code,str(p),'exec'),{'__file__':str(p),'__name__':'__main__'})
+  File "/workspace/scratch/20c6fe32dd57/qa153_source/tests/ui_all_pages_smoke.py", line 54, in <module>
+    assert not errors,errors
+           ^^^^^^^^^^
+AssertionError: [(<class '_tkinter.TclError'>, TclError('invalid command name ".!frame3.!label9"'), <traceback object at 0x7f81b36847c0>), (<class '_tkinter.TclError'>, TclError('invalid command name ".!frame3.!label9"'), <traceback object at 0x7f81b36aebc0>)]

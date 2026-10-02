@@ -1,7 +1,10 @@
 from modules.ui_theme import PALETTE as UI_COLORS
-import json, platform, socket, subprocess, threading, time, urllib.request
+import json, platform, socket, subprocess, threading, time, urllib.request, queue, logging
 from datetime import datetime
 import tkinter as tk
+import ipaddress
+import math
+from urllib.error import HTTPError
 from tkinter import ttk, messagebox
 from modules.advanced_pages import _connect, notify_alert
 from app_runtime import hidden_subprocess_kwargs
@@ -10,6 +13,27 @@ APP_PRESETS = {
     'SQL Server': 1433, 'IIS / HTTP': 80, 'HTTPS': 443, 'MySQL': 3306,
     'PostgreSQL': 5432, 'DNS': 53, 'DHCP': 67, 'Apache/Nginx': 80,
 }
+
+
+def validate_target(host, port, protocol):
+    host = host.strip()
+    protocol = protocol.strip().upper()
+    if not host or any(ch.isspace() or ch in '/\\?#@' for ch in host):
+        raise ValueError('Host/IP không hợp lệ; chỉ nhập tên máy hoặc IP, không nhập URL.')
+    if ':' in host or '[' in host or ']' in host:
+        try:
+            host = str(ipaddress.IPv6Address(host[1:-1] if host.startswith('[') and host.endswith(']') else host))
+        except ValueError:
+            raise ValueError('Host IPv6 không hợp lệ; nhập port ở trường Port riêng.') from None
+    try:
+        port = int(port)
+    except (ValueError, TypeError):
+        raise ValueError('Port phải là số từ 1 đến 65535.') from None
+    if not 1 <= port <= 65535:
+        raise ValueError('Port phải từ 1 đến 65535.')
+    if protocol not in ('TCP', 'HTTP', 'HTTPS'):
+        raise ValueError('Protocol phải là TCP, HTTP hoặc HTTPS.')
+    return host, port, protocol
 
 def ensure_server_monitor_tables():
     c=_connect()
@@ -45,25 +69,46 @@ def _local_windows_health(service_name=''):
     except Exception:return None
 
 def check_target(row):
-    host=row['host']; port=int(row['port'] or 0); proto=(row['protocol'] or 'TCP').upper(); t0=time.perf_counter()
+    host=row['host']; t0=time.perf_counter()
     status='DOWN'; detail=''; latency=None
     try:
+        proto=(row['protocol'] or 'TCP').upper()
+        port=row['port'] or (80 if proto == 'HTTP' else 443 if proto == 'HTTPS' else 0)
+        host,port,proto=validate_target(host,port,proto)
         if proto in ('HTTP','HTTPS'):
-            scheme=proto.lower(); url=f'{scheme}://{host}' + (f':{port}' if port and port not in (80,443) else '') + '/'
+            scheme=proto.lower()
+            url_host = '['+host.strip('[]')+']' if ':' in host else host
+            default_port = 80 if proto == 'HTTP' else 443
+            url=f'{scheme}://{url_host}' + (f':{port}' if port and port != default_port else '') + '/'
             with urllib.request.urlopen(url,timeout=5) as r:
-                code=getattr(r,'status',200); status='UP' if code < 500 else 'WARN'; detail=f'HTTP {code}'
+                code=getattr(r,'status',200); status='UP' if code < 400 else 'WARN'; detail=f'HTTP {code}'
         else:
             with socket.create_connection((host,port),timeout=5): pass
             status='UP'; detail=f'TCP {port} open'
         latency=round((time.perf_counter()-t0)*1000,1)
+    except HTTPError as exc:
+        status='WARN'; detail=f'HTTP {exc.code}'
+        latency=round((time.perf_counter()-t0)*1000,1)
+        exc.close()
     except Exception as exc:
         latency=round((time.perf_counter()-t0)*1000,1); detail=str(exc)[:300]
     health=_local_windows_health(row['service_name']) if _is_local(host) else None
     cpu=ram=disk=None; service=''
     if health:
-        cpu=health.get('cpu'); ram=health.get('ram'); disk=health.get('disk'); service=health.get('service','')
-        if service and service.lower()!='running': status='WARN'; detail += f'; service={service}'
-        if any(v is not None and float(v)>=90 for v in (cpu,ram,disk)): status='WARN'; detail += '; resource >=90%'
+        def percentage(value):
+            try:
+                value=float(value)
+                return value if math.isfinite(value) and 0 <= value <= 100 else None
+            except (ValueError,TypeError):
+                return None
+        cpu=percentage(health.get('cpu')); ram=percentage(health.get('ram')); disk=percentage(health.get('disk'))
+        service=str(health.get('service') or '')
+        if service and service.lower()!='running':
+            if status=='UP': status='WARN'
+            detail += f'; service={service}'
+        if any(v is not None and v>=90 for v in (cpu,ram,disk)):
+            if status=='UP': status='WARN'
+            detail += '; resource >=90%'
     return {'status':status,'latency_ms':latency,'cpu':cpu,'ram':ram,'disk':disk,'service_status':service,'detail':detail}
 
 def save_result(target_id,res):
@@ -73,31 +118,40 @@ def save_result(target_id,res):
                      VALUES(?,?,?,?,?,?,?,?,?)''',(target_id,res['status'],res['latency_ms'],res['cpu'],res['ram'],res['disk'],res['service_status'],res['detail'],_now()));c.commit()
     finally:c.close()
 
-def run_all_targets():
+def run_all_targets(stop=None):
     ensure_server_monitor_tables(); c=_connect()
     try: rows=c.execute('SELECT * FROM server_monitor_targets WHERE enabled=1 ORDER BY id').fetchall()
     finally:c.close()
     out=[]
     for row in rows:
+        if stop is not None and stop.is_set():
+            break
         res=check_target(row); save_result(row['id'],res); out.append((dict(row),res))
         if res['status'] in ('DOWN','WARN'):
             notify_alert(row['host'],f"Application/Server {res['status']}",f"{row['name']} ({row['app_type']}): {res['detail']}",'Critical' if res['status']=='DOWN' else 'Warning',event_key=f"server-monitor|{row['id']}|{res['status']}")
     return out
 
 class ServerMonitorPage:
-    def __init__(self,parent,activity_callback=None):
-        self.parent=parent; self.activity=activity_callback or (lambda x:None); ensure_server_monitor_tables(); self.build()
+    def __init__(self,parent,activity_callback=None,worker_threads=None):
+        self.parent=parent; self.activity=activity_callback or (lambda x:None)
+        self.worker_threads = worker_threads if worker_threads is not None else []
+        self.stop_event = threading.Event()
+        self.results = queue.Queue()
+        self.busy = False
+        ensure_server_monitor_tables(); self.build()
     def build(self):
         for w in self.parent.winfo_children(): w.destroy()
         top=tk.Frame(self.parent,bg=UI_COLORS['surface']);top.pack(fill='x',padx=12,pady=10)
         tk.Label(top,text='Application / Server Monitor',bg=UI_COLORS['surface'],fg=UI_COLORS['text'],font=('Segoe UI',15,'bold')).pack(side='left')
-        ttk.Button(top,text='Chạy kiểm tra',command=self.run_checks).pack(side='right',padx=4)
+        self.run_button = ttk.Button(top,text='Chạy kiểm tra',command=self.run_checks)
+        self.run_button.pack(side='right',padx=4)
         ttk.Button(top,text='Thêm target',command=self.add_target).pack(side='right',padx=4)
         cols=('name','host','app','port','status','latency','cpu','ram','disk','service','checked')
         self.tree=ttk.Treeview(self.parent,columns=cols,show='headings',height=18)
         labels={'name':'Tên','host':'Host/IP','app':'Ứng dụng','port':'Port','status':'Trạng thái','latency':'Latency','cpu':'CPU','ram':'RAM','disk':'Disk','service':'Service','checked':'Kiểm tra'}
         for c in cols:self.tree.heading(c,text=labels[c]);self.tree.column(c,width=105,anchor='center')
         self.tree.column('name',width=145,anchor='w');self.tree.column('host',width=125,anchor='w');self.tree.pack(fill='both',expand=True,padx=12,pady=(0,12))
+        self.tree.bind('<Destroy>', self.on_destroy, add='+')
         self.refresh()
     def refresh(self):
         for i in self.tree.get_children():self.tree.delete(i)
@@ -113,17 +167,50 @@ class ServerMonitorPage:
         fields=[('Tên hiển thị','name'),('Host / IP','host'),('Loại ứng dụng','app'),('Port','port'),('Protocol TCP/HTTP/HTTPS','protocol'),('Windows service (tùy chọn)','service')]
         for i,(lab,key) in enumerate(fields):tk.Label(win,text=lab).grid(row=i,column=0,sticky='w',padx=12,pady=8);ttk.Entry(win,textvariable=vars[key],width=28).grid(row=i,column=1,padx=8,pady=8)
         def save():
-            try: port=int(vars['port'].get())
-            except: return messagebox.showerror('Port','Port phải là số.',parent=win)
+            try:
+                host, port, protocol = validate_target(vars['host'].get(), vars['port'].get(), vars['protocol'].get())
+            except ValueError as exc:
+                return messagebox.showerror('Target',str(exc),parent=win)
             if not vars['name'].get().strip() or not vars['host'].get().strip():return messagebox.showwarning('Thiếu dữ liệu','Nhập tên và Host/IP.',parent=win)
             c=_connect()
-            try:c.execute('INSERT INTO server_monitor_targets(name,host,app_type,port,protocol,service_name,enabled,created_at) VALUES(?,?,?,?,?,?,1,?)',(vars['name'].get().strip(),vars['host'].get().strip(),vars['app'].get().strip(),port,vars['protocol'].get().strip().upper(),vars['service'].get().strip(),_now()));c.commit()
+            try:c.execute('INSERT INTO server_monitor_targets(name,host,app_type,port,protocol,service_name,enabled,created_at) VALUES(?,?,?,?,?,?,1,?)',(vars['name'].get().strip(),host,vars['app'].get().strip(),port,protocol,vars['service'].get().strip(),_now()));c.commit()
             finally:c.close()
             win.destroy();self.refresh()
         ttk.Button(win,text='Lưu',command=save).grid(row=len(fields),column=0,columnspan=2,pady=18)
     def run_checks(self):
+        if self.busy or self.stop_event.is_set():
+            return
+        self.busy = True
+        self.run_button.configure(state='disabled')
         def worker():
             try:
-                out=run_all_targets();self.parent.after(0,self.refresh);self.activity(f'Application/Server Monitor: checked {len(out)} targets')
-            except Exception as exc:self.parent.after(0,lambda:messagebox.showerror('Server Monitor',str(exc)))
-        threading.Thread(target=worker,daemon=True).start()
+                out=run_all_targets(stop=self.stop_event)
+                self.results.put((len(out), None))
+            except Exception as exc:
+                logging.getLogger(__name__).exception('Server monitoring failed')
+                self.results.put((None, str(exc)))
+        thread = threading.Thread(target=worker,daemon=True,name='ServerMonitor')
+        self.worker_threads[:] = [t for t in self.worker_threads if t.is_alive()]
+        self.worker_threads.append(thread)
+        thread.start()
+        self.parent.after(100, self.poll_result)
+
+    def poll_result(self):
+        if not self.tree.winfo_exists() or self.stop_event.is_set():
+            return
+        try:
+            count, error = self.results.get_nowait()
+        except queue.Empty:
+            self.parent.after(100,self.poll_result)
+            return
+        self.busy = False
+        self.run_button.configure(state='normal')
+        if error is not None:
+            messagebox.showerror('Server Monitor',error,parent=self.parent)
+        else:
+            self.refresh()
+            self.activity(f'Application/Server Monitor: checked {count} targets')
+
+    def on_destroy(self, event):
+        if event.widget is self.tree:
+            self.stop_event.set()

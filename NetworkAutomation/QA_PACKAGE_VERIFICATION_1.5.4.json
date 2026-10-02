@@ -1,0 +1,24 @@
+{
+  "unit_tests": 169,
+  "regression_groups": 11,
+  "gui_tests": {
+    "ui_device_presence_smoke.py": "0",
+    "ui_all_pages_smoke.py": "0",
+    "ui_accounts_smoke.py": "0",
+    "ui_pages_smoke.py": "0",
+    "ui_credentials_smoke.py": "0",
+    "ui_ssh_smoke.py": "0"
+  },
+  "gui_environment": "Linux/Xvfb; simulated LAN; real Tk",
+  "tested_independent_archive_extraction": true,
+  "original_db_counts": {
+    "devices": 93,
+    "network_devices": 93,
+    "app_users": 3,
+    "credentials": 0,
+    "config_backups": 1
+  },
+  "physical_user_lan_tested": false,
+  "windows_exe_rebuilt": false,
+  "real_icmp_environment": "permission denied; verified Unknown response"
+}

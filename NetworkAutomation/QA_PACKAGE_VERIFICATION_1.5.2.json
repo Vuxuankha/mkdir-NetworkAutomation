@@ -1,0 +1,13 @@
+{
+  "unit_tests": 141,
+  "unit_failures": 0,
+  "regression_checks": 11,
+  "regression_failures": 0,
+  "tested_from_extracted_zip": true,
+  "tested_source_matches_final_zip": true,
+  "archive_crc_check": "pass",
+  "duplicate_archive_names": false,
+  "unchanged_entries_crc_matched": 15912,
+  "original_database_and_key_bytes_preserved": true,
+  "verification_note": "Final archive adds only packaged test log and this verification record after the candidate source passed tests. All packaged source files are checked against the tested extraction."
+}

@@ -536,7 +536,8 @@ class NetworkTopologyPage(BaseAdvancedPage):
 
 
 class SSHAutomationPage(BaseAdvancedPage):
-    def __init__(self,parent,activity_callback=None):
+    def __init__(self,parent,activity_callback=None,worker_threads=None):
+        self.worker_threads=worker_threads if worker_threads is not None else []
         super().__init__(parent,activity_callback);self.host=tk.StringVar();self.port=tk.StringVar(value='22');self.username=tk.StringVar();self.password=tk.StringVar();self.template=tk.StringVar();self.status=tk.StringVar(value='Sẵn sàng');self.mode=tk.StringVar(value='exec');self.paging=tk.StringVar();self._busy=False;self._results=queue.Queue();self._build();self._load_templates()
 
     def _build(self):
@@ -606,7 +607,12 @@ class SSHAutomationPage(BaseAdvancedPage):
                 self._results.put((out, None, backup))
             except Exception as exc:
                 self._results.put(('', str(exc), backup))
-        threading.Thread(target=worker, daemon=True).start()
+        thread=threading.Thread(target=worker,daemon=True,name='SSHAutomation')
+        threads=getattr(self,'worker_threads',None)
+        if threads is not None:
+            threads[:]=[t for t in threads if t.is_alive()]
+            threads.append(thread)
+        thread.start()
         self.parent.after(100, self._poll_result)
 
     def _poll_result(self):

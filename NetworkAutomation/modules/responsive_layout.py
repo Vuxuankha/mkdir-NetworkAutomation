@@ -29,7 +29,9 @@ class FlowRow:
     """Use independent row containers so unequal rows do not share column widths."""
     def __init__(self,frame,widgets,gap=8,row_style='Card.TFrame'):
         self.frame=frame;self.widgets=widgets;self.gap=gap;self.last=None;self.rows=[];self.row_style=row_style
+        self.pending=None;self.destroyed=False
         frame.bind('<Configure>',self.layout,add='+')
+        frame.bind('<Destroy>',self.on_destroy,add='+')
         for widget in widgets:widget.bind('<Configure>',self.layout,add='+')
         self.apply([(0,col) for col in range(len(widgets))])
     def apply(self,positions):
@@ -45,8 +47,21 @@ class FlowRow:
             widget.grid(in_=self.rows[row],row=0,column=col,sticky='w',padx=(0,self.gap),pady=3)
         self.last=positions
     def layout(self,event):
+        # Changing geometry inside Configure can re-enter Tk's active grid layout.
+        # Coalesce notifications and wait until that layout pass has returned.
+        if not self.destroyed and self.pending is None:
+            self.pending=self.frame.after_idle(self.apply_pending)
+    def apply_pending(self):
+        self.pending=None
+        if self.destroyed:return
         positions=flow_positions(self.frame.winfo_width(),[widget.winfo_reqwidth()+self.gap for widget in self.widgets],self.gap)
         if positions!=self.last:self.apply(positions)
+    def on_destroy(self,event):
+        if event.widget is self.frame:
+            self.destroyed=True
+            if self.pending is not None:
+                self.frame.after_cancel(self.pending)
+                self.pending=None
 
 
 class AdaptiveForm:

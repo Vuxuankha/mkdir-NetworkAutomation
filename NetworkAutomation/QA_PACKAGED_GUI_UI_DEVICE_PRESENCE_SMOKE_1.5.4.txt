@@ -1,0 +1,1 @@
+PASS: 93-device real Tk page; startup Unknown; automatic Offline→Online; fresh timestamp; selection/filter; manual refresh; page timer cleanup; worker shutdown; no callback errors.

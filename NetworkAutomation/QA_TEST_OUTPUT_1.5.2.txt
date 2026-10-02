@@ -1,0 +1,183 @@
+test_activity_log_scope_and_search (test_accounts.AccountTests.test_activity_log_scope_and_search) ... ok
+test_admin_can_rename_own_account (test_accounts.AccountTests.test_admin_can_rename_own_account) ... ok
+test_admin_resets_other_password_without_logging_secrets (test_accounts.AccountTests.test_admin_resets_other_password_without_logging_secrets) ... ok
+test_all_disabled_accounts_do_not_reenable_bootstrap (test_accounts.AccountTests.test_all_disabled_accounts_do_not_reenable_bootstrap) ... ok
+test_authentication_and_profile_exclude_password_hash (test_accounts.AccountTests.test_authentication_and_profile_exclude_password_hash) ... ok
+test_concurrent_admin_deletes_keep_one_enabled_admin (test_accounts.AccountTests.test_concurrent_admin_deletes_keep_one_enabled_admin) ... ok
+test_create_update_lock_unlock_delete (test_accounts.AccountTests.test_create_update_lock_unlock_delete) ... ok
+test_dialog_error_keeps_form_open_for_retry (test_accounts.AccountTests.test_dialog_error_keeps_form_open_for_retry) ... ok
+test_duplicate_invalid_fields_and_weak_password_do_not_write (test_accounts.AccountTests.test_duplicate_invalid_fields_and_weak_password_do_not_write) ... ok
+test_first_account_requires_enabled_admin_and_bootstrap_expires (test_accounts.AccountTests.test_first_account_requires_enabled_admin_and_bootstrap_expires) ... ok
+test_operator_and_viewer_cannot_manage_accounts (test_accounts.AccountTests.test_operator_and_viewer_cannot_manage_accounts) ... ok
+test_own_password_requires_current_password_and_confirmation (test_accounts.AccountTests.test_own_password_requires_current_password_and_confirmation) ... ok
+test_self_delete_disable_demote_are_rejected (test_accounts.AccountTests.test_self_delete_disable_demote_are_rejected) ... ok
+test_stale_admin_role_is_checked_in_database (test_accounts.AccountTests.test_stale_admin_role_is_checked_in_database) ... ok
+test_finish_waits_for_worker_then_audits_logout (test_accounts.LogoutTests.test_finish_waits_for_worker_then_audits_logout) ... ok
+test_logout_stops_engines_before_destroying_session (test_accounts.LogoutTests.test_logout_stops_engines_before_destroying_session) ... ok
+test_relogin_uses_fresh_root_and_disables_bootstrap (test_accounts.LogoutTests.test_relogin_uses_fresh_root_and_disables_bootstrap) ... ok
+test_backup_missing_credentials_skip (test_auto_ip.AutoIPTests.test_backup_missing_credentials_skip) ... ok
+test_backup_off_by_default (test_auto_ip.AutoIPTests.test_backup_off_by_default) ... ok
+test_concurrency_bounded (test_auto_ip.AutoIPTests.test_concurrency_bounded) ... ok
+test_corrupt_community_still_runs_ping_tcp (test_auto_ip.AutoIPTests.test_corrupt_community_still_runs_ping_tcp) ... ok
+test_counter_rates_and_reset (test_auto_ip.AutoIPTests.test_counter_rates_and_reset) ... ok
+test_credential_encrypted_and_blank_keeps_secret (test_auto_ip.AutoIPTests.test_credential_encrypted_and_blank_keeps_secret) ... ok
+test_double_start_and_stop (test_auto_ip.AutoIPTests.test_double_start_and_stop) ... ok
+test_email_report_forces_export_and_uses_notification_smtp (test_auto_ip.AutoIPTests.test_email_report_forces_export_and_uses_notification_smtp) ... ok
+test_email_report_skips_when_smtp_not_configured (test_auto_ip.AutoIPTests.test_email_report_skips_when_smtp_not_configured) ... ok
+test_empty_rejected (test_auto_ip.AutoIPTests.test_empty_rejected) ... ok
+test_excel_duplicate_header (test_auto_ip.AutoIPTests.test_excel_duplicate_header) ... ok
+test_excel_formula_rejected (test_auto_ip.AutoIPTests.test_excel_formula_rejected) ... ok
+test_excel_invalid_batch_rejected (test_auto_ip.AutoIPTests.test_excel_invalid_batch_rejected) ... ok
+test_excel_minimal (test_auto_ip.AutoIPTests.test_excel_minimal) ... ok
+test_excel_optional_vietnamese_headers (test_auto_ip.AutoIPTests.test_excel_optional_vietnamese_headers) ... ok
+test_excel_xls_rejected (test_auto_ip.AutoIPTests.test_excel_xls_rejected) ... ok
+test_global_alert_postprocess (test_auto_ip.AutoIPTests.test_global_alert_postprocess) ... ok
+test_interrupted_run_recovery (test_auto_ip.AutoIPTests.test_interrupted_run_recovery) ... ok
+test_invalid_ip_and_ranges (test_auto_ip.AutoIPTests.test_invalid_ip_and_ranges) ... ok
+test_ip_split_deduplicate (test_auto_ip.AutoIPTests.test_ip_split_deduplicate) ... ok
+test_ipv6_canonical (test_auto_ip.AutoIPTests.test_ipv6_canonical) ... ok
+test_limits (test_auto_ip.AutoIPTests.test_limits) ... ok
+test_local_ping_error_not_offline (test_auto_ip.AutoIPTests.test_local_ping_error_not_offline) ... ok
+test_manual_driver_preserved (test_auto_ip.AutoIPTests.test_manual_driver_preserved) ... ok
+test_missing_profile_before_inventory_write (test_auto_ip.AutoIPTests.test_missing_profile_before_inventory_write) ... ok
+test_no_authorization_no_run (test_auto_ip.AutoIPTests.test_no_authorization_no_run) ... ok
+test_no_credential_skip_not_success (test_auto_ip.AutoIPTests.test_no_credential_skip_not_success) ... ok
+test_ping_failure_does_not_skip_snmp (test_auto_ip.AutoIPTests.test_ping_failure_does_not_skip_snmp) ... ok
+test_repeat_wait_stop (test_auto_ip.AutoIPTests.test_repeat_wait_stop) ... ok
+test_report_and_formula_safety (test_auto_ip.AutoIPTests.test_report_and_formula_safety) ... ok
+test_shared_inventory_idempotent (test_auto_ip.AutoIPTests.test_shared_inventory_idempotent) ... ok
+test_snmp_failure_isolated_and_redacted (test_auto_ip.AutoIPTests.test_snmp_failure_isolated_and_redacted) ... ok
+test_ssh_allowlist_blocks_writes (test_auto_ip.AutoIPTests.test_ssh_allowlist_blocks_writes) ... ok
+test_stale_v3_still_runs_ping_tcp (test_auto_ip.AutoIPTests.test_stale_v3_still_runs_ping_tcp) ... ok
+test_unknown_driver_prefix_boundary (test_auto_ip.AutoIPTests.test_unknown_driver_prefix_boundary) ... ok
+test_viewer_denied (test_auto_ip.AutoIPTests.test_viewer_denied) ... ok
+test_actual_totals_unknown_states_and_open_events (test_dark_dashboard.DashboardTests.test_actual_totals_unknown_states_and_open_events) ... ok
+test_cards_reflow_at_small_widths (test_dark_dashboard.DashboardTests.test_cards_reflow_at_small_widths) ... ok
+test_connect_failure_retains_unavailable_state (test_dark_dashboard.DashboardTests.test_connect_failure_retains_unavailable_state) ... ok
+test_empty_database_has_zero_counts (test_dark_dashboard.DashboardTests.test_empty_database_has_zero_counts) ... ok
+test_missing_incidents_does_not_hide_devices (test_dark_dashboard.DashboardTests.test_missing_incidents_does_not_hide_devices) ... ok
+test_missing_schema_shows_unavailable_not_healthy_zero (test_dark_dashboard.DashboardTests.test_missing_schema_shows_unavailable_not_healthy_zero) ... ok
+test_add_persists_and_is_readable (test_device_dialog.DeviceSaveTests.test_add_persists_and_is_readable) ... ok
+test_database_error_keeps_form_open_and_enables_retry (test_device_dialog.DeviceSaveTests.test_database_error_keeps_form_open_and_enables_retry) ... ok
+test_duplicate_does_not_overwrite_existing_device (test_device_dialog.DeviceSaveTests.test_duplicate_does_not_overwrite_existing_device) ... ok
+test_edit_same_ip_updates_existing_row (test_device_dialog.DeviceSaveTests.test_edit_same_ip_updates_existing_row) ... ok
+test_edit_to_duplicate_ip_leaves_original_unchanged (test_device_dialog.DeviceSaveTests.test_edit_to_duplicate_ip_leaves_original_unchanged) ... ok
+test_invalid_ip_does_not_write (test_device_dialog.DeviceSaveTests.test_invalid_ip_does_not_write) ... ok
+test_rejected_save_keeps_dialog_open_for_retry (test_device_dialog.DeviceSaveTests.test_rejected_save_keeps_dialog_open_for_retry) ... ok
+test_agent_already_stopped_does_not_probe (test_extensions.ExtensionTests.test_agent_already_stopped_does_not_probe) ... ok
+test_camera_tcp_not_claimed_video (test_extensions.ExtensionTests.test_camera_tcp_not_claimed_video) ... ok
+test_host_validation (test_extensions.ExtensionTests.test_host_validation) ... ok
+test_redacts_secrets_and_bounds_text (test_extensions.ExtensionTests.test_redacts_secrets_and_bounds_text) ... ok
+test_wifi_loss_and_latency (test_extensions.ExtensionTests.test_wifi_loss_and_latency) ... ok
+test_cancellation_bounds_submission (test_network_scan.ScanTests.test_cancellation_bounds_submission) ... ok
+test_invalid_workers_and_timeout (test_network_scan.ScanTests.test_invalid_workers_and_timeout) ... ok
+test_large_ipv6_cancelled_without_materializing_hosts (test_network_scan.ScanTests.test_large_ipv6_cancelled_without_materializing_hosts) ... ok
+test_ping_process_deadline_and_rounding (test_network_scan.ScanTests.test_ping_process_deadline_and_rounding) ... ok
+test_ping_timeout (test_network_scan.ScanTests.test_ping_timeout) ... ok
+test_sorted_results_and_total (test_network_scan.ScanTests.test_sorted_results_and_total) ... ok
+test_http_and_https_use_protocol_specific_default_ports (test_qa151.QA151Tests.test_http_and_https_use_protocol_specific_default_ports) ... ok
+test_ipv6_url_uses_brackets (test_qa151.QA151Tests.test_ipv6_url_uses_brackets) ... ok
+test_navigation_ignores_results_and_requests_stop (test_qa151.QA151Tests.test_navigation_ignores_results_and_requests_stop) ... ok
+test_regression_keeps_operator_database_and_wal_untouched (test_qa151.QA151Tests.test_regression_keeps_operator_database_and_wal_untouched) ... ok
+test_repeated_start_does_not_spawn_duplicate_worker (test_qa151.QA151Tests.test_repeated_start_does_not_spawn_duplicate_worker) ... ok
+test_server_page_activity_callback_runs_without_missing_user (test_qa151.QA151Tests.test_server_page_activity_callback_runs_without_missing_user) ... ok
+test_server_worker_never_calls_tk_or_activity_callback (test_qa151.QA151Tests.test_server_worker_never_calls_tk_or_activity_callback) ... ok
+test_shutdown_waits_for_server_worker (test_qa151.QA151Tests.test_shutdown_waits_for_server_worker) ... ok
+test_target_validation_rejects_bad_port_protocol_and_url (test_qa151.QA151Tests.test_target_validation_rejects_bad_port_protocol_and_url) ... ok
+test_worker_exception_message_survives_until_main_thread_poll (test_qa151.QA151Tests.test_worker_exception_message_survives_until_main_thread_poll) ... ok
+test_backup_database_write_failure_releases_lock (test_qa152.QA152Tests.test_backup_database_write_failure_releases_lock) ... ok
+test_backup_failure_releases_lock_and_can_be_retried (test_qa152.QA152Tests.test_backup_failure_releases_lock_and_can_be_retried) ... ok
+test_backup_lock_blocks_another_process_and_recovers_after_exit (test_qa152.QA152Tests.test_backup_lock_blocks_another_process_and_recovers_after_exit) ... ok
+test_backup_worker_only_reports_via_queue (test_qa152.QA152Tests.test_backup_worker_only_reports_via_queue) ... ok
+test_database_error_does_not_disable_future_scheduler_ticks (test_qa152.QA152Tests.test_database_error_does_not_disable_future_scheduler_ticks) ... Secure backup scheduler tick failed
+Traceback (most recent call last):
+  File "/workspace/scratch/20c6fe32dd57/review_again/modules/nms_v5.py", line 399, in _tick
+    c=_connect()
+      ^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/unittest/mock.py", line 1139, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/unittest/mock.py", line 1143, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/unittest/mock.py", line 1198, in _execute_mock_call
+    raise effect
+sqlite3.OperationalError: locked
+ok
+test_decryption_never_creates_a_replacement_key (test_qa152.QA152Tests.test_decryption_never_creates_a_replacement_key) ... ok
+test_host_port_is_rejected_and_bracketed_ipv6_normalized (test_qa152.QA152Tests.test_host_port_is_rejected_and_bracketed_ipv6_normalized) ... ok
+test_http_error_response_is_warning_and_closes_response (test_qa152.QA152Tests.test_http_error_response_is_warning_and_closes_response) ... ok
+test_invalid_existing_key_is_not_overwritten (test_qa152.QA152Tests.test_invalid_existing_key_is_not_overwritten) ... ok
+test_lost_key_with_existing_credentials_is_not_replaced (test_qa152.QA152Tests.test_lost_key_with_existing_credentials_is_not_replaced) ... ok
+test_malformed_port_and_health_do_not_abort_monitoring (test_qa152.QA152Tests.test_malformed_port_and_health_do_not_abort_monitoring) ... ok
+test_missing_key_detects_camera_and_pool_ciphertext (test_qa152.QA152Tests.test_missing_key_detects_camera_and_pool_ciphertext) ... ok
+test_missing_key_detects_snmp_and_settings_ciphertext (test_qa152.QA152Tests.test_missing_key_detects_snmp_and_settings_ciphertext) ... ok
+test_navigation_stops_scheduling_and_ignores_late_results (test_qa152.QA152Tests.test_navigation_stops_scheduling_and_ignores_late_results) ... ok
+test_parallel_processes_share_one_complete_vault_key (test_qa152.QA152Tests.test_parallel_processes_share_one_complete_vault_key) ... ok
+test_scheduled_claim_rechecks_enabled_and_next_run (test_qa152.QA152Tests.test_scheduled_claim_rechecks_enabled_and_next_run) ... ok
+test_shutdown_waits_for_secure_backup_worker (test_qa152.QA152Tests.test_shutdown_waits_for_secure_backup_worker) ... ok
+test_slow_backup_cannot_run_twice_even_across_page_instances (test_qa152.QA152Tests.test_slow_backup_cannot_run_twice_even_across_page_instances) ... ok
+test_unreachable_service_stays_down_with_high_resource_warning (test_qa152.QA152Tests.test_unreachable_service_stays_down_with_high_resource_warning) ... ok
+test_upgrade_snapshot_is_created_once_across_processes (test_qa152.QA152Tests.test_upgrade_snapshot_is_created_once_across_processes) ... ok
+test_large_dpi_widgets_wrap (test_responsive_layout.ResponsiveTests.test_large_dpi_widgets_wrap) ... ok
+test_multiple_wraps_keep_every_widget (test_responsive_layout.ResponsiveTests.test_multiple_wraps_keep_every_widget) ... ok
+test_narrow_toolbar_wraps (test_responsive_layout.ResponsiveTests.test_narrow_toolbar_wraps) ... ok
+test_sidebar_preserves_manual_choice_until_breakpoint_change (test_responsive_layout.ResponsiveTests.test_sidebar_preserves_manual_choice_until_breakpoint_change) ... ok
+test_wide_toolbar_one_row (test_responsive_layout.ResponsiveTests.test_wide_toolbar_one_row) ... ok
+test_zero_width_no_crash (test_responsive_layout.ResponsiveTests.test_zero_width_no_crash) ... ok
+test_connect_failure_closes_client (test_ssh_runner.SSHTests.test_connect_failure_closes_client) ... ok
+test_empty_password_preserves_key_auth (test_ssh_runner.SSHTests.test_empty_password_preserves_key_auth) ... ok
+test_exec_drains_both_streams (test_ssh_runner.SSHTests.test_exec_drains_both_streams) ... ok
+test_exec_failure_not_reported_success (test_ssh_runner.SSHTests.test_exec_failure_not_reported_success) ... ok
+test_password_auth_does_not_try_agent_keys (test_ssh_runner.SSHTests.test_password_auth_does_not_try_agent_keys) ... ok
+test_result_ignored_after_navigation (test_ssh_runner.SSHTests.test_result_ignored_after_navigation) ... ok
+test_shell_reads_config_prompt (test_ssh_runner.SSHTests.test_shell_reads_config_prompt) ... ok
+test_shell_timeout_closes_everything (test_ssh_runner.SSHTests.test_shell_timeout_closes_everything) ... ok
+test_shell_uses_one_session_with_paging (test_ssh_runner.SSHTests.test_shell_uses_one_session_with_paging) ... ok
+test_validation (test_ssh_runner.SSHTests.test_validation) ... ok
+test_worker_never_reads_tk_or_schedules_callbacks (test_ssh_runner.SSHTests.test_worker_never_reads_tk_or_schedules_callbacks) ... ok
+test_destroy_cancels_ui_poll (test_stability111.StabilityTests.test_destroy_cancels_ui_poll) ... ok
+test_heartbeat_lifecycle_and_stale (test_stability111.StabilityTests.test_heartbeat_lifecycle_and_stale) ... ok
+test_invalid_heartbeat (test_stability111.StabilityTests.test_invalid_heartbeat) ... ok
+test_lock_excludes_other_process_and_releases (test_stability111.StabilityTests.test_lock_excludes_other_process_and_releases) ... ok
+test_no_wifi_still_probes_gateway (test_stability111.StabilityTests.test_no_wifi_still_probes_gateway) ... ok
+test_ai_entry_points_and_endpoints_are_gone (test_ui_release140.ReleaseTests.test_ai_entry_points_and_endpoints_are_gone) ... ok
+test_camera_wifi_and_history_remain_available (test_ui_release140.ReleaseTests.test_camera_wifi_and_history_remain_available) ... ok
+test_no_legacy_light_backgrounds_in_any_page (test_ui_release140.ReleaseTests.test_no_legacy_light_backgrounds_in_any_page) ... ok
+test_page_cleanup_keeps_root_monitoring_callbacks (test_ui_release140.ReleaseTests.test_page_cleanup_keeps_root_monitoring_callbacks) ... ok
+test_text_and_state_colors_readable_on_dark_surfaces (test_ui_release140.ReleaseTests.test_text_and_state_colors_readable_on_dark_surfaces) ... ok
+test_backup_failure_does_not_mark_release (test_upgrade102.UpgradeTests.test_backup_failure_does_not_mark_release) ... ok
+test_backup_preserves_wal_and_key_once_per_release (test_upgrade102.UpgradeTests.test_backup_preserves_wal_and_key_once_per_release) ... ok
+test_dns_disabled (test_upgrade102.UpgradeTests.test_dns_disabled) ... ok
+test_dns_saturation_skips (test_upgrade102.UpgradeTests.test_dns_saturation_skips) ... ok
+test_dns_success (test_upgrade102.UpgradeTests.test_dns_success) ... ok
+test_new_install_has_no_snapshot (test_upgrade102.UpgradeTests.test_new_install_has_no_snapshot) ... ok
+test_slow_dns_is_bounded (test_upgrade102.UpgradeTests.test_slow_dns_is_bounded) ... ok
+
+----------------------------------------------------------------------
+Ran 141 tests in 9.132s
+
+OK
+Starting network scan: 10.0.0.0/8
+Network scan stopped.
+Starting network scan: 192.0.2.0/30
+Starting network scan: 192.0.2.0/30
+Starting network scan: 192.0.2.0/30
+Starting network scan: 192.0.2.0/30
+Starting network scan: 2001:db8::/32
+Ping error 192.0.2.1: 
+Starting network scan: 192.0.2.0/30
+Network scan completed.
+Scanning: 192.0.2.1
+PASS | Compile toàn bộ
+PASS | Migration v3.12
+PASS | Mã hóa + mật khẩu
+PASS | Alert engine
+PASS | Device Profile
+PASS | Site/Group/Maintenance
+PASS | SLA/Incident/Capacity
+PASS | Dependency/RCA/Service Impact
+PASS | Stable Core/Worker
+PASS | SNMPv3/Vendor Driver
+PASS | Import ứng dụng
+PASS: release checks; disposable data removed.

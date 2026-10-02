@@ -5,10 +5,31 @@ import shutil
 import sqlite3
 import tempfile
 import threading
+import time
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
 _LOCK = threading.Lock()
+
+
+@contextmanager
+def _release_lock(base):
+    from agent_runtime import AgentLock
+    lock = AgentLock(base / '.release_backup.lock')
+    deadline = time.monotonic() + 30
+    while True:
+        try:
+            lock.__enter__()
+            break
+        except RuntimeError:
+            if time.monotonic() >= deadline:
+                raise RuntimeError('Đang sao lưu trước nâng cấp; hãy đợi rồi mở lại ứng dụng.') from None
+            time.sleep(.02)
+    try:
+        yield
+    finally:
+        lock.__exit__(None, None, None)
 
 
 def backup_before_release(database_path, resource_dir, version=None):
@@ -18,7 +39,8 @@ def backup_before_release(database_path, resource_dir, version=None):
     if not version or any(c not in '0123456789.' for c in version):
         raise ValueError('Invalid application version')
     marker = base / f'.release_backup_{version}.json'
-    with _LOCK:
+    base.mkdir(parents=True, exist_ok=True)
+    with _LOCK, _release_lock(base):
         if marker.exists() or not database_path.exists() or database_path.stat().st_size == 0:
             return None
         backups = base / 'db_backups'

@@ -1,13 +1,7 @@
 """Shared native dark theme for every Tk/ttk application page."""
 from tkinter import ttk
 
-PALETTE={
-    'background':'#0B131C','sidebar':'#101A25','surface':'#151F2B','surface_alt':'#1C2937',
-    'field':'#101A25','border':'#2B3B4E','text':'#E8F0F6','muted':'#A6B7C8',
-    'accent':'#49DCD7','primary':'#215461','hover':'#2D6A79','selection':'#354B65',
-    'success':'#60DEAC','danger':'#FF839C','warning':'#FFCC73','pink':'#E285C6',
-    'success_bg':'#19463B','danger_bg':'#542739','warning_bg':'#514227',
-}
+from modules.ui_ux_config import PALETTE, TYPE, SIZE
 
 # Conversion is scoped to UI color properties, never database/network values.
 BACKGROUND_MAP={
@@ -72,8 +66,8 @@ def apply_theme(root):
     for name in ('TCheckbutton','TRadiobutton'):
         style.configure(name,background=p['background'],foreground=p['text'],indicatorbackground=p['field'],indicatorforeground=p['accent'],padding=(3,5))
         style.map(name,background=[('active',p['surface_alt'])],foreground=[('disabled',p['muted'])],indicatorbackground=[('selected',p['primary']),('disabled',p['surface_alt'])])
-    style.configure('Treeview',background=p['surface'],fieldbackground=p['surface'],foreground=p['text'],rowheight=33,borderwidth=0,font=('Segoe UI',10))
-    style.configure('Treeview.Heading',background=p['surface_alt'],foreground=p['muted'],relief='flat',padding=(10,10),font=('Segoe UI',10,'bold'))
+    style.configure('Treeview',background=p['surface'],fieldbackground=p['surface'],foreground=p['text'],rowheight=SIZE['table_row_height'],borderwidth=0,font=TYPE['body'])
+    style.configure('Treeview.Heading',background=p['surface_alt'],foreground=p['muted'],relief='flat',padding=(10,10),font=TYPE['body_bold'])
     style.map('Treeview',background=[('selected',p['selection'])],foreground=[('selected',p['text'])])
     style.map('Treeview.Heading',background=[('active',p['hover'])],foreground=[('active',p['text'])])
     style.configure('TNotebook',background=p['background'],bordercolor=p['border'])

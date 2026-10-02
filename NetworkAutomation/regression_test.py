@@ -1,12 +1,17 @@
 """Regression smoke tests v3.12. Chạy: python regression_test.py
-Bộ test tạo snapshot database và khôi phục nguyên trạng sau khi chạy.
+Bộ test chạy trên dữ liệu tạm, không sao chép/ghi đè database vận hành.
 """
-import compileall, sqlite3, shutil, tempfile
+import compileall, sqlite3, shutil, tempfile, os, sys, subprocess, re
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parent
+if os.environ.get('NA_REGRESSION_CHILD') != '1':
+    with tempfile.TemporaryDirectory(prefix='na-regression-') as folder:
+        env = dict(os.environ, NETWORK_AUTOMATION_DATA_DIR=folder, NA_REGRESSION_CHILD='1')
+        result = subprocess.run([sys.executable, str(Path(__file__).resolve())], cwd=ROOT, env=env)
+    raise SystemExit(result.returncode)
 from database.db import DB_PATH
-SNAPSHOT=Path(tempfile.gettempdir())/'network_automation_regression_snapshot.db'
+SNAPSHOT=Path(DB_PATH).parent/'network_automation_regression_snapshot.db'
 if Path(DB_PATH).exists(): shutil.copy2(DB_PATH,SNAPSHOT)
 checks=[]
 
@@ -34,7 +39,7 @@ def check(name, fn):
     try: fn(); checks.append((name,'PASS',''))
     except Exception as e: checks.append((name,'FAIL',repr(e)))
 
-def t_compile(): assert compileall.compile_dir(str(ROOT),quiet=1)
+def t_compile(): assert compileall.compile_dir(str(ROOT),quiet=1,rx=re.compile(r'[\\/](?:\.venv[^\\/]*|venv|build|dist)[\\/]'))
 def t_schema():
     from modules.nms_v6 import ensure_v6_tables
     from modules.nms_v7 import ensure_v7_tables
