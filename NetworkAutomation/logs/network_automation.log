@@ -1,5 +1,6 @@
 2026-10-01 15:43:06,568 INFO app_runtime: Application start frozen=False data_dir=C:\Users\Admin\OneDrive\Documents\GitHub\mkdir-NetworkAutomation\NetworkAutomation
 2026-10-01 15:57:41,718 INFO app_runtime: Application start frozen=False data_dir=C:\Users\Admin\OneDrive\Documents\GitHub\mkdir-NetworkAutomation\NetworkAutomation
+<<<<<<< Updated upstream
 2026-10-01 19:31:38,769 INFO app_runtime: Application start frozen=False data_dir=C:\Users\B-Tech Computer\Documents\GitHub\mkdir-NetworkAutomation\NetworkAutomation
 2026-10-01 22:32:20,948 INFO app_runtime: Application start frozen=False data_dir=C:\Users\B-Tech Computer\Documents\GitHub\mkdir-NetworkAutomation\NetworkAutomation
 2026-10-01 22:33:01,325 INFO app_runtime: Application start frozen=False data_dir=C:\Users\B-Tech Computer\Documents\GitHub\mkdir-NetworkAutomation\NetworkAutomation
@@ -19,3 +20,9 @@ Traceback (most recent call last):
     self.tk.call(_flatten((self._w, cmd)) + self._options(cnf))
     ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 _tkinter.TclError: invalid command name ".!frame3.!label2"
+=======
+2026-10-01 16:13:10,607 INFO app_runtime: Application start frozen=False data_dir=C:\Users\Admin\OneDrive\Documents\GitHub\mkdir-NetworkAutomation\NetworkAutomation
+2026-10-01 16:24:28,436 INFO app_runtime: Application start frozen=False data_dir=C:\Users\Admin\OneDrive\Documents\GitHub\mkdir-NetworkAutomation\NetworkAutomation
+2026-10-01 16:24:40,345 INFO app_runtime: Application start frozen=False data_dir=C:\Users\Admin\OneDrive\Documents\GitHub\mkdir-NetworkAutomation\NetworkAutomation
+2026-10-01 16:25:56,823 INFO app_runtime: Application start frozen=False data_dir=C:\Users\Admin\OneDrive\Documents\GitHub\mkdir-NetworkAutomation\NetworkAutomation
+>>>>>>> Stashed changes
