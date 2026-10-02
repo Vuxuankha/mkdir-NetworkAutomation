@@ -310,25 +310,49 @@ class DarkDashboard:
                 )
 
     def quick_action_tile(self, parent, icon, title, description, command):
-        tile = tk.Button(
-            parent, text='', command=command, bg=PANEL, activebackground=PANEL2,
-            relief='flat', bd=0, cursor='hand2', highlightthickness=1,
-            highlightbackground=BORDER, padx=0, pady=0
+        # A Tk Button is not a reliable container for child widgets on Windows.
+        # Use a frame as the card so icon/title/description render on every tile.
+        tile = tk.Frame(
+            parent, bg=PANEL, cursor='hand2', highlightthickness=1,
+            highlightbackground=BORDER, highlightcolor=BORDER_STRONG
         )
-        inner = tk.Frame(tile, bg=PANEL)
+        inner = tk.Frame(tile, bg=PANEL, cursor='hand2')
         inner.pack(fill='both', expand=True, padx=12, pady=10)
         icon_box = tk.Label(
             inner, text=icon, bg=PANEL2, fg=CYAN, width=3, height=1,
-            font=('Segoe UI Symbol', 12, 'bold')
+            font=('Segoe UI Symbol', 12, 'bold'), cursor='hand2'
         )
         icon_box.pack(side='left', padx=(0, 10))
-        text = tk.Frame(inner, bg=PANEL)
-        text.pack(side='left', fill='both', expand=True)
-        label(text, title, font=TYPE['body_bold']).pack(anchor='w')
-        label(text, description, fg=SUBTLE, font=TYPE['caption']).pack(anchor='w', pady=(2, 0))
-        # Child widgets forward clicks to the button for a larger hit target.
-        for widget in (inner, icon_box, text, *text.winfo_children()):
-            widget.bind('<Button-1>', lambda _event, b=tile: b.invoke())
+        text_box = tk.Frame(inner, bg=PANEL, cursor='hand2')
+        text_box.pack(side='left', fill='both', expand=True)
+        title_label = label(text_box, title, font=TYPE['body_bold'], cursor='hand2')
+        title_label.pack(anchor='w')
+        desc_label = label(
+            text_box, description, fg=SUBTLE, font=TYPE['caption'], cursor='hand2'
+        )
+        desc_label.pack(anchor='w', pady=(2, 0))
+
+        widgets = (tile, inner, icon_box, text_box, title_label, desc_label)
+
+        def invoke(_event=None):
+            command()
+            return 'break'
+
+        def set_hover(active):
+            color = PANEL2 if active else PANEL
+            tile.configure(bg=color, highlightbackground=BORDER_STRONG if active else BORDER)
+            inner.configure(bg=color)
+            text_box.configure(bg=color)
+            title_label.configure(bg=color)
+            desc_label.configure(bg=color)
+
+        for widget in widgets:
+            widget.bind('<Button-1>', invoke)
+            widget.bind('<Enter>', lambda _event: set_hover(True))
+            widget.bind('<Leave>', lambda _event: set_hover(False))
+        tile.bind('<Return>', invoke)
+        tile.bind('<space>', invoke)
+        tile.configure(takefocus=1)
         return tile
 
     def build_quick_actions(self):
@@ -368,6 +392,8 @@ class DarkDashboard:
         self.legend.pack(anchor='w', pady=(8, 4))
         self.agent = label(connection_text, fg=CYAN, wraplength=320, font=TYPE['small'])
         self.agent.pack(fill='x')
+        self.agent_hint = label(connection_text, fg=SUBTLE, wraplength=320, font=TYPE['caption'])
+        self.agent_hint.pack(fill='x', pady=(3, 0))
 
         self.audit = self.section_card(self.status_row)
         audit_top = tk.Frame(self.audit, bg=PANEL)
@@ -581,7 +607,10 @@ class DarkDashboard:
                 sticky='nsew', padx=4, pady=4
             )
             self.wide = wide
-        self.audit_label.configure(wraplength=max(220, (width // 2 if wide else width) - 80))
+        status_wrap = max(220, (width // 2 if wide else width) - 80)
+        self.audit_label.configure(wraplength=status_wrap)
+        self.agent.configure(wraplength=status_wrap)
+        self.agent_hint.configure(wraplength=status_wrap)
         self.notice.configure(wraplength=max(250, width - 50))
 
     def health_state(self, snapshot):
@@ -617,8 +646,16 @@ class DarkDashboard:
             status, detail = 'Chưa sẵn sàng', 'Không đọc được trạng thái Daily Audit'
         self.audit_label.configure(text=status + ' · ' + detail)
 
-        state, _ = heartbeat_status(data_path('agent_status.json'))
-        self.agent.configure(text='Giám sát nền · ' + state)
+        state, heartbeat = heartbeat_status(data_path('agent_status.json'))
+        self.agent.configure(text='Agent giám sát nền · ' + state)
+        if heartbeat:
+            hb_dir = heartbeat.get('data_dir')
+            hint = ('Heartbeat của service/agent; độc lập với số Online/Offline lưu trong CSDL.'
+                    if not hb_dir else
+                    'Heartbeat service/agent · dữ liệu: ' + str(hb_dir))
+        else:
+            hint = 'Online/Offline ở trên là trạng thái đã lưu trong CSDL; chưa xác nhận agent nền đang chạy.'
+        self.agent_hint.configure(text=hint)
 
         state_text, state_color, _ = self.health_state(snapshot)
         self.health_pill.configure(text='● ' + state_text, fg=state_color)

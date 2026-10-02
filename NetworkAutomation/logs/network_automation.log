@@ -44,4 +44,3 @@ Traceback (most recent call last):
 _tkinter.TclError: invalid command name ".!frame3.!frame24.!treeview"
 2026-10-02 08:03:02,167 INFO app_runtime: Application start frozen=False data_dir=C:\Users\Admin\OneDrive\Documents\GitHub\mkdir-NetworkAutomation\NetworkAutomation
 2026-10-02 08:08:09,377 INFO app_runtime: Application start frozen=False data_dir=C:\Users\Admin\OneDrive\Documents\GitHub\mkdir-NetworkAutomation\NetworkAutomation
-2026-10-02 15:40:57,738 INFO app_runtime: Application start frozen=False data_dir=C:\Users\Admin\OneDrive\Documents\GitHub\mkdir-NetworkAutomation\NetworkAutomation

@@ -51,10 +51,16 @@ class Heartbeat:
         self.done.set();self.thread.join(timeout=2);self.write(state='stopped')
 
 def heartbeat_status(path,now=None):
+    path=Path(path)
+    if not path.exists():
+        return 'Chưa khởi động / chưa có heartbeat',{}
     try:
-        info=json.loads(Path(path).read_text(encoding='utf-8'))
+        info=json.loads(path.read_text(encoding='utf-8'))
         if info.get('state')=='stopped':return 'Đã dừng',info
         age=(time.time() if now is None else now)-float(info['heartbeat'])
         if age<0 or age>35:return 'Mất heartbeat — kiểm tra Windows Services',info
         return {'starting':'Đang khởi tạo','running':'Đang giám sát','waiting':'Đang chờ lượt tiếp theo','error':'Đang lỗi; sẽ thử lại'}.get(info.get('state'),'Trạng thái chưa xác định'),info
-    except (OSError,ValueError,KeyError,TypeError):return 'Chưa có heartbeat hợp lệ',{}
+    except (ValueError,KeyError,TypeError,json.JSONDecodeError):
+        return 'Heartbeat lỗi / không đọc được',{}
+    except OSError:
+        return 'Không đọc được heartbeat',{}
